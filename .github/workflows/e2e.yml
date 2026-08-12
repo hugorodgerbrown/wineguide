@@ -39,7 +39,7 @@ jobs:
       # The e2e tox env builds static/css/output.css before starting the live
       # server (it is gitignored), which needs npx.
       - name: Set up Node (20)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 
