@@ -54,13 +54,21 @@ JavaScript has not run.
             class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-10 focus:bg-accent focus:px-3 focus:py-2 focus:font-sans focus:text-accent-contrast"
             href="#main"
         >{% translate "Skip to content" %}</a>
-        <header class="flex items-center justify-between gap-4 border-b border-rule px-6 py-4">
+        {# Wraps to a second line on a narrow screen rather than squeezing: #}
+        {# without flex-wrap the row stays one line and the labels break #}
+        {# mid-word instead, which is how "Sign out" became two lines on a #}
+        {# phone. Every label is nowrap so a wrap can only ever happen #}
+        {# between items, never inside one. #}
+        <header class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-rule px-4 py-3 sm:px-6 sm:py-4">
             <a
-                class="font-sans font-semibold tracking-wide text-ink no-underline"
+                class="font-sans font-semibold tracking-wide whitespace-nowrap text-ink no-underline"
                 href="{% url 'public:home' %}"
             >{{ SITE_NAME }}</a>
             {% if user.is_authenticated %}
-                <nav class="ms-auto flex items-center gap-4 font-sans text-caption" aria-label="{% translate 'Main' %}">
+                <nav
+                    class="ms-auto flex items-center gap-4 font-sans text-caption whitespace-nowrap"
+                    aria-label="{% translate 'Main' %}"
+                >
                     <a href="{% url 'tastings:start' %}">{% translate "Taste" %}</a>
                     <a href="{% url 'journal:list' %}">{% translate "Journal" %}</a>
                     {# POST, so no image tag on any page can sign someone out #}
@@ -75,7 +83,7 @@ JavaScript has not run.
             {% endif %}
             <button
                 id="theme-toggle"
-                class="cursor-pointer rounded-full border border-rule px-4 py-1 font-sans text-caption text-ink-muted hover:border-ink-muted hover:text-ink"
+                class="cursor-pointer rounded-full border border-rule px-4 py-1 font-sans text-caption whitespace-nowrap text-ink-muted hover:border-ink-muted hover:text-ink"
                 type="button"
                 hidden
                 aria-pressed="false"
