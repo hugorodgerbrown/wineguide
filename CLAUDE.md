@@ -4,10 +4,14 @@ Project conventions. Read [README.md](README.md) first for setup and commands.
 
 ## Stack
 
-Django 6 + HTMX, Tailwind v4 for styling, everything else served straight from
+Django 6 + HTMX, Tailwind v4 for styling, everything served straight from
 `static/` — no bundler, no CDN. Python 3.14, managed with uv. `tox` is the
 entrypoint for every check; CI runs the same envs, so a green `tox` locally
 means a green CI.
+
+The product is a guided wine-tasting companion; the spec is
+[docs/prd-v1.md](docs/prd-v1.md) and section references in the code point at
+it. Read "Where the seam falls" in the README before touching the session.
 
 ## Invariants
 
@@ -17,9 +21,13 @@ means a green CI.
 2. **One version of each tool.** ruff is pinned exactly in `pyproject.toml`'s
    `lint` group and must match `.pre-commit-config.yaml`'s rev. Bump both in
    the same commit.
-3. **Every interactive element works without JavaScript.** JS enhances; it is
-   never the only way to do something. A control that cannot work without JS
-   is rendered `hidden` and revealed by the script that makes it work.
+3. **Everything works without JavaScript, except the guided session.** JS
+   enhances; it is not the only way to do something. A control that cannot
+   work without JS is rendered `hidden` and revealed by the script that makes
+   it work. The one exception is `/taste/`, which is a real-time, offline-
+   capable state machine and cannot be delivered any other way — it says so in
+   a `<noscript>` and points at the journal. Do not extend that exception to
+   anything else without a reason as concrete as PRD §8's.
 4. **No secrets in source.** Configuration comes from the environment via
    python-decouple. gitleaks runs in pre-commit and in CI.
 5. **No hard-coded external hostnames or endpoints.** They belong in settings,
@@ -33,8 +41,17 @@ means a green CI.
 
 ## Where things go
 
-- `apps/public/` — the public site. New pages go here until there is a reason
-  to split an app out.
+- `apps/core/` — enums shared by the lexicon and the record, and the two views
+  that must live at the site root (`/sw.js`, `/offline/`).
+- `apps/lexicon/` — the vocabulary, as versioned data. Wording changes go in
+  `seed_data.py` and are published as a NEW version whenever the change would
+  make an existing note read differently; sessions record the version they
+  were taken against.
+- `apps/tastings/` — the record, the session shell, and the two JSON
+  endpoints. The session page is client-driven; see below.
+- `apps/journal/` — views over `apps.tastings` models. It owns no models.
+- `apps/accounts/` — passwordless sign-in.
+- `apps/public/` — the landing page.
 - `config/settings/` — `base.py` holds everything environment-agnostic;
   `development.py` and `production.py` override. Never put a secret in any of
   them.
@@ -48,6 +65,27 @@ means a green CI.
 - `static/js/` — one module per concern. Logic that can be tested without a
   DOM goes in a `*_core.js` module; the sibling module does the DOM wiring.
   Third-party JS is vendored by `bin/vendor-js.mjs` and committed.
+- `static/js/session/` — the guided session. `session_core.js` holds every
+  rule and touches no DOM, storage or network; `session_db.js` persists to
+  IndexedDB; `session_sync.js` ships to the server; `session_ui.js` draws;
+  `session.js` wires them together.
+
+## The session
+
+The one place a request per interaction would break the product (PRD §8: sub-
+200ms transitions, survives losing the network mid-phase). Three rules:
+
+1. **The tap is durable before it is sent.** Write to IndexedDB, repaint,
+   then sync in the background. Never the other order, and never await the
+   network on the path between a tap and the next prompt.
+2. **The client sends the whole session, never a delta.** That is what makes
+   the upsert idempotent and lets the offline queue retry blindly.
+3. **New rules go in `session_core.js`**, where they can be tested without a
+   DOM. If you find yourself testing behaviour through the UI module, the
+   behaviour is in the wrong module.
+
+The journal is the opposite case and should stay that way: request-shaped
+interactions, server-rendered, working with scripting off.
 
 ## Styling
 

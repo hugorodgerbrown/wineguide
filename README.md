@@ -1,10 +1,12 @@
 # wineguide
 
-A short, opinionated wine guide. Django + HTMX on the server, Tailwind for
-styling, vanilla JS for progressive enhancement.
+A guided tasting companion for wine students. It walks you through the
+four-phase sequence — Look, Smell, Taste, Conclude — with the glass in front of
+you, and keeps every session in a personal journal.
 
-Right now it is a homepage: a hero, one wine pick, and a control that fetches
-the next one.
+Django + HTMX + Tailwind, with the live tasting running client-side. The spec
+is [docs/prd-v1.md](docs/prd-v1.md); the flow is
+[docs/tasting-flow.mermaid](docs/tasting-flow.mermaid).
 
 ## Requirements
 
@@ -80,19 +82,45 @@ uv run tox -e e2e -- tests/e2e/test_home.py
 ## Layout
 
 ```
-apps/public/        The public site: views, URLs, templates, the wine data
+apps/core/          Enums shared by the lexicon and the record; the SW view
+apps/accounts/      Passwordless sign-in — a signed link, no passwords
+apps/lexicon/       The versioned vocabulary, and the payload the client runs on
+apps/tastings/      The tasting record, the session shell, and two JSON endpoints
+apps/journal/       Reading sessions back: list, detail, search, edit, delete
+apps/public/        The landing page
 config/             Settings (base / development / production), URLs, WSGI
-templates/          Site-wide templates — base.html and its includes
+templates/          Site-wide templates — base.html, includes, offline page
 src/css/main.css    Tailwind entry point and every design token
 static/css/         Build output (output.css, gitignored)
-static/js/          theme.js + theme_core.js
+static/js/session/  The session state machine — core, db, sync, ui, controller
+static/js/          theme.js, sw.js, sw_register.js
 static/js/vendor/   Third-party JS, copied from node_modules and committed
-tests/public/       pytest — views, templates, data
+tests/              pytest, mirroring the apps
 tests/js/           Vitest — the client-side modules
 tests/e2e/          Playwright — the paths that need a real browser
 bin/build.sh        Deploy build — dependencies, CSS, collectstatic, migrate
 bin/vendor-js.mjs   Copies third-party browser JS out of node_modules
 ```
+
+## Where the seam falls
+
+The one architectural decision worth reading before anything else.
+
+PRD §8 asks for phase transitions under 200ms and a session that survives the
+venue wifi dropping between Look and Smell. A request per tap delivers
+neither. So the app is split:
+
+- **The guided session** (`/taste/`) is one page and a client-side state
+  machine. It fetches the lexicon once, caches it in IndexedDB, and then runs
+  the whole tasting locally — every tap is written to IndexedDB before
+  anything is sent, and the network is a background sync that catches up.
+  This is the one part of the site that needs JavaScript.
+- **Everything else** — the journal, sign-in — is ordinary server-rendered
+  HTML with HTMX, and works with scripting off.
+
+The rules of the session live in `static/js/session/session_core.js`, with no
+DOM, no storage and no network, so they can be unit-tested directly. The other
+modules are the thin layers around it.
 
 ## Styling
 
@@ -127,21 +155,21 @@ visible in diffs. To update it:
 npm install htmx.org@latest && npm run vendor
 ```
 
-Both interactive elements work without JavaScript, and are better with it:
+The theme toggle is rendered `hidden` and revealed by `theme.js` — a control
+that cannot work without JS should not be visible before JS runs. An inline
+script in `<head>` applies the stored theme before first paint, so a
+dark-theme reader never sees a white flash.
 
-- **The wine picker** is an ordinary link to `/pick/?index=N`. HTMX intercepts
-  it and swaps `#wine-panel` in place; without HTMX the browser follows the
-  href and the same view returns the whole page.
-- **The theme toggle** is rendered `hidden` and revealed by `theme.js`. A
-  control that cannot work without JS should not be visible before JS runs.
-  An inline script in `<head>` applies the stored theme before first paint so
-  a dark-theme reader never sees a white flash.
+The service worker stands down entirely under `DEBUG`. Its cache version is
+derived from the release version, which is the constant `"dev"` locally, so
+cache-first on `/static/` would serve an edited module forever with nothing on
+screen to say why.
 
 ## Testing
 
 Three suites, three jobs:
 
-- **pytest** (`tests/`) — views, template rendering, the data module. This is
+- **pytest** (`tests/`) — models, views, the API, template rendering. This is
   where most tests belong; it has a 90% coverage floor.
 - **Vitest** (`tests/js/`) — the client-side modules. Logic lives in
   `theme_core.js` and is tested directly; `theme.js` is the thin DOM wiring
