@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python (3.14)
         uses: actions/setup-python@v6
@@ -81,7 +81,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python (3.14)
         uses: actions/setup-python@v6
@@ -110,7 +110,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python (3.14)
         uses: actions/setup-python@v6
@@ -135,7 +135,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # Full history so the scan covers every commit in the range, not
           # just the tip. Mirrors the pre-commit gitleaks hook.
