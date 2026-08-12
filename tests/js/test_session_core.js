@@ -16,6 +16,7 @@ import {
   complete,
   createSession,
   currentStep,
+  depthRung,
   goTo,
   isFinished,
   isOverBudget,
@@ -97,6 +98,30 @@ const PAYLOAD = {
 };
 
 const STEPS = buildSteps(PAYLOAD);
+
+/** A Look phase whose second question is the three-rung depth scale. */
+const WITH_DEPTH = {
+  phases: [
+    {
+      code: 'look',
+      label: 'Look',
+      seconds: 45,
+      questions: [
+        {
+          code: 'depth',
+          prompt: 'How deep?',
+          short: 'Depth',
+          control: 'scale',
+          options: [
+            { code: 'pale', label: 'Pale', children: [] },
+            { code: 'medium', label: 'Medium', children: [] },
+            { code: 'deep', label: 'Deep', children: [] },
+          ],
+        },
+      ],
+    },
+  ],
+};
 
 function fresh(overrides = {}) {
   return {
@@ -654,5 +679,92 @@ describe('noteSoFar', () => {
     state = answer(steps, next(steps, state, at(6)), 'very_good', at(7));
 
     expect(noteSoFar(steps, state)).toBe('Clear');
+  });
+});
+
+describe('depthRung', () => {
+  it('starts on the middle rung', () => {
+    // The dots have to be some colour before any depth is recorded.
+    expect(depthRung(STEPS, fresh())).toBe(2);
+  });
+
+  it('takes the rung the taster recorded', () => {
+    // "Once the taster records colour depth, pass that swatch colour so the
+    // row stains itself the colour of the wine" — ProgressDots.
+    const steps = buildSteps(WITH_DEPTH);
+    let state = fresh();
+    state = { ...state, answers: { depth: { values: ['deep'], skipped: false } } };
+    expect(depthRung(steps, state)).toBe(3);
+  });
+
+  it('reads the palest rung as one', () => {
+    const steps = buildSteps(WITH_DEPTH);
+    const state = { ...fresh(), answers: { depth: { values: ['pale'], skipped: false } } };
+    expect(depthRung(steps, state)).toBe(1);
+  });
+
+  it('falls back to the middle when the question was skipped', () => {
+    const steps = buildSteps(WITH_DEPTH);
+    const state = { ...fresh(), answers: { depth: { values: [], skipped: true } } };
+    expect(depthRung(steps, state)).toBe(2);
+  });
+
+  it('ignores a scale question outside the opening phase', () => {
+    // The depth question is the first scale question in the first phase; a
+    // scale later on is acidity or tannin and says nothing about colour.
+    const steps = buildSteps({
+      phases: [
+        {
+          code: 'look',
+          label: 'Look',
+          seconds: 45,
+          questions: [
+            { code: 'clarity', prompt: 'Clear?', short: 'Clarity', control: 'single', options: [] },
+          ],
+        },
+        {
+          code: 'taste',
+          label: 'Taste',
+          seconds: 150,
+          questions: [
+            {
+              code: 'acidity',
+              prompt: 'Acidity?',
+              short: 'Acidity',
+              control: 'scale',
+              options: [
+                { code: 'low', label: 'Low', children: [] },
+                { code: 'high', label: 'High', children: [] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const state = { ...fresh(), answers: { acidity: { values: ['high'], skipped: false } } };
+    expect(depthRung(steps, state)).toBe(2);
+  });
+
+  it('caps at three however many rungs the scale has', () => {
+    const steps = buildSteps({
+      phases: [
+        {
+          code: 'look',
+          label: 'Look',
+          seconds: 45,
+          questions: [
+            {
+              code: 'depth',
+              prompt: 'Depth?',
+              short: 'Depth',
+              control: 'scale',
+              options: ['a', 'b', 'c', 'd', 'e'].map((c) => ({ code: c, label: c, children: [] })),
+            },
+          ],
+        },
+      ],
+    });
+    const state = { ...fresh(), answers: { depth: { values: ['e'], skipped: false } } };
+    expect(depthRung(steps, state)).toBe(3);
   });
 });

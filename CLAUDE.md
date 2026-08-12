@@ -89,13 +89,19 @@ interactions, server-rendered, working with scripting off.
 
 ## Styling
 
-Tailwind utilities in templates, tokens in `src/css/main.css`. Two rules, both
-of which exist so that a visual decision is recorded in one place:
+Tailwind utilities in templates, tokens in `src/css/main.css`. The rules the
+session UI follows — where the accent may appear, what the progress dots take
+their colour from, why there is exactly one progress indicator — are in
+[docs/design-system.md](docs/design-system.md). Read it before changing
+anything on a session screen.
+
+Two rules beyond that, both of which exist so that a visual decision is
+recorded in one place:
 
 - **No arbitrary values in templates.** `text-[13px]` states a size without
   saying what it is for. Add a named token to `@theme` instead — the scale
-  already carries `text-display`, `text-body`, `text-fact`, `text-caption`,
-  `text-meta`.
+  already carries `text-question`, `text-answer`, `text-note`, `text-body`,
+  `text-fact`, `text-control`, `text-caption` and `text-meta`.
 - **No `dark:` variants.** The palette flips at the variable level: `@theme`
   holds the light values, and a `prefers-color-scheme` block plus two
   `[data-theme]` blocks reassign them. Utilities generated from `@theme`

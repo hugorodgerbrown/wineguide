@@ -428,6 +428,42 @@ export function questionStates(steps, state) {
 }
 
 /**
+ * Which rung of the wine's depth ramp the progress markers should take.
+ *
+ * From the ProgressDots spec: "once the taster records colour depth, pass
+ * that swatch colour so the row stains itself the colour of the wine". The
+ * markers start at the middle rung and move to whatever depth was actually
+ * observed, so a pale wine gets a pale row and a deep one a deep row.
+ *
+ * Found by position rather than by question code — the first scale question
+ * in the opening phase is the depth question in any lexicon that follows the
+ * method, and hard-coding a code here would tie the renderer to one
+ * vocabulary version.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @returns {number} 1, 2 or 3.
+ */
+export function depthRung(steps, state) {
+  const first = steps[0];
+  if (!first) return 2;
+
+  const step = steps.find(
+    (s) => s.phase === first.phase && s.question.control === 'scale',
+  );
+  if (!step) return 2;
+
+  const answered = state.answers[step.question.code];
+  if (!answered || answered.skipped || !answered.values.length) return 2;
+
+  const index = step.question.options.findIndex(
+    (o) => o.code === answered.values[0],
+  );
+  if (index < 0) return 2;
+  return Math.min(index + 1, 3);
+}
+
+/**
  * The tasting note as far as it has been written.
  *
  * The design's centrepiece: rather than a list of stored answers, the screen

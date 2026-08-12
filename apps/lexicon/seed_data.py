@@ -549,10 +549,9 @@ QUESTIONS: list[QuestionSpec] = [
         "short": "Condition",
         "prompt": "Clean, or is something off?",
         "how": (
-            "Smell before you swirl. Wet cardboard or damp cellar is cork "
-            "taint. Vinegar or nail varnish is volatile acidity. Sherry notes "
-            "in a young wine are oxidation. Boiled cabbage is reduction, and "
-            "often blows off after a minute."
+            "Smell before you swirl. Wet cardboard means cork taint, vinegar "
+            "or nail varnish means volatile acidity, and sherry notes in a "
+            "young wine mean oxidation."
         ),
         "why": (
             "A faulty wine cannot be assessed, and going through the motions on "
@@ -610,9 +609,8 @@ QUESTIONS: list[QuestionSpec] = [
         "prompt": "What can you smell?",
         "how": (
             "Swirl, then short sharp sniffs rather than one long one — your "
-            "nose tires in seconds. Open a group that sounds close and pick "
-            "everything you find. Name what it smells LIKE; sorting out where "
-            "each one came from is our job, not yours."
+            "nose tires in seconds. Name what it smells like; working out "
+            "where each one came from is our job, not yours."
         ),
         "why": (
             "This is the raw material for everything at the end. We sort what "
@@ -662,8 +660,8 @@ QUESTIONS: list[QuestionSpec] = [
         "prompt": "How much acidity?",
         "how": (
             "Swallow, then close your mouth and wait. Acidity is how much your "
-            "mouth waters afterwards, and for how long. It is a feeling at the "
-            "sides of the tongue, not a flavour."
+            "mouth waters afterwards — a feeling at the sides of the tongue, "
+            "not a flavour."
         ),
         "why": (
             "Acidity is the clearest signal of where a wine grew. High acidity "
@@ -696,8 +694,8 @@ QUESTIONS: list[QuestionSpec] = [
         "prompt": "How much tannin?",
         "how": (
             "Tannin is texture, not taste. After swallowing, run your tongue "
-            "over your front teeth and the inside of your cheeks. Tannin is the "
-            "dry, grippy, suede-like drag — like over-stewed tea."
+            "over your teeth and cheeks and feel for a dry, suede-like drag — "
+            "like over-stewed tea."
         ),
         "why": (
             "It comes from skins, pips, stems and oak, and it is what lets a "
@@ -731,8 +729,8 @@ QUESTIONS: list[QuestionSpec] = [
         "prompt": "How much alcohol?",
         "how": (
             "Swallow, then breathe out gently through your mouth. Alcohol is "
-            "the warmth at the back of your throat and the top of your chest. "
-            "Do not look at the label first."
+            "the warmth at the back of your throat — and do not look at the "
+            "label first."
         ),
         "why": (
             "Alcohol comes from sugar, and sugar comes from sun. Higher alcohol "
@@ -884,9 +882,9 @@ QUESTIONS: list[QuestionSpec] = [
         "short": "Readiness",
         "prompt": "Is it ready?",
         "how": (
-            "Compare the fruit against the structure. Hard tannin or searing "
-            "acidity with the fruit hiding behind it means too young. Fruit "
-            "faded and the structure left bare means too late."
+            "Compare the fruit against the structure. Structure in front of "
+            "the fruit means too young; fruit gone and the structure bare "
+            "means too late."
         ),
         "why": (
             "Deciding when to open a bottle is the most practical thing this "
@@ -923,9 +921,9 @@ QUESTIONS: list[QuestionSpec] = [
         "short": "Climate",
         "prompt": "Cool, moderate or warm climate?",
         "how": (
-            "Read it off your own answers rather than guessing. High acidity, "
-            "lower alcohol, lighter body and tart or green fruit point cool. "
-            "Soft acidity, high alcohol, full body and jammy fruit point warm."
+            "Read it off your own answers. High acidity, low alcohol and tart "
+            "fruit point cool; soft acidity, high alcohol and jammy fruit "
+            "point warm."
         ),
         "why": (
             "Climate narrows the field faster than anything else, and it is the "
@@ -1082,9 +1080,8 @@ QUESTIONS: list[QuestionSpec] = [
         "short": "Origin",
         "prompt": "Old World or New?",
         "how": (
-            "A rough split, and a useful one. Earthy, savoury, restrained and "
-            "higher in acid tends towards Europe. Fruit-forward, riper and "
-            "higher in alcohol tends away from it."
+            "Earthy, savoury and higher in acid tends towards Europe. "
+            "Fruit-forward, riper and higher in alcohol tends away from it."
         ),
         "why": (
             "It is the same evidence as the climate answer read a different "

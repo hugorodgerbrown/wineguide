@@ -38,7 +38,7 @@
    swatch class at runtime — `bg-depth-${rung}` — which Tailwind's static
    scanner cannot see, so without this the ramp silently renders as no
    background at all and every rung looks identical. */
-@source inline("bg-depth-{1,2,3}");
+@source inline("{bg,ring}-depth-{1,2,3}");
 
 /* ———————————————————————————————————————————
    1. DESIGN TOKENS

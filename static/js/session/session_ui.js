@@ -37,10 +37,10 @@
 import {
   allAnswered,
   currentStep,
+  depthRung,
   isFinished,
   isOverBudget,
   noteSoFar,
-  phaseElapsedMs,
   progress,
   questionStates,
 } from './session_core.js';
@@ -116,12 +116,21 @@ const SECONDARY = `${CONTROL} border border-rule-strong text-ink`;
 const META = 'font-mono text-meta tracking-meta uppercase text-ink-faint';
 const META_LG = 'font-mono text-meta-lg tracking-meta uppercase';
 
-/** Marker styles for the progress rail, by answer state. */
-const MARKER = {
-  answered: 'bg-accent',
-  skipped: 'border border-dashed border-ink-disabled',
-  unanswered: 'border border-rule-strong',
-};
+/**
+ * Marker styles for the progress rail, by answer state.
+ *
+ * The wine's depth ramp, not the accent — "accent appears only on the note
+ * rule, current dot, hint icon and advance button" (guidelines/
+ * colors-accent-use), and the dots guideline puts them on depth. The rung is
+ * substituted per render, so the row stains itself the colour the taster
+ * actually recorded.
+ */
+const marker = (status, rung) =>
+  ({
+    answered: `bg-depth-${rung}`,
+    skipped: 'border border-dashed border-ink-disabled',
+    unanswered: 'border border-rule-strong',
+  })[status];
 
 /**
  * Render the setup screen: wine style, and optionally what the wine is.
@@ -260,7 +269,7 @@ export function renderSetup({ wineTypes, onStart }) {
 export function renderStorageWarning() {
   return el('p', {
     class:
-      'mb-4 rounded-card border border-accent bg-paper-raised px-4 py-3 font-sans text-fact',
+      'mb-4 rounded-card border border-rule-strong bg-paper-raised px-4 py-3 font-sans text-fact',
     role: 'status',
     dataset: { role: 'storage-warning' },
     text:
@@ -287,6 +296,7 @@ export function renderStorageWarning() {
  * @returns {HTMLElement}
  */
 export function renderProgressRail(steps, state, onJump) {
+  const rung = depthRung(steps, state);
   const rail = el('nav', {
     class: 'flex flex-1 flex-wrap items-center gap-y-1',
     'aria-label': 'All questions',
@@ -318,8 +328,10 @@ export function renderProgressRail(steps, state, onJump) {
         [
           el('span', {
             class:
-              `block size-2.5 rounded-full ${MARKER[question.status]} ` +
-              (question.current ? 'ring-2 ring-accent ring-offset-1 ring-offset-paper-raised' : ''),
+              `block size-2.5 rounded-full ${marker(question.status, rung)} ` +
+              (question.current
+                ? `ring-2 ring-depth-${rung} ring-offset-1 ring-offset-paper-raised`
+                : ''),
           }),
         ],
       ),
@@ -340,7 +352,7 @@ export function renderProgressRail(steps, state, onJump) {
  * @param {(index: number) => void} onJump
  * @returns {HTMLElement}
  */
-export function renderNoteCard(steps, state, onJump) {
+export function renderNoteCard(steps, state, onJump, onExpand) {
   const note = noteSoFar(steps, state);
   const p = progress(steps, state);
   const answered = questionStates(steps, state).filter(
@@ -358,7 +370,20 @@ export function renderNoteCard(steps, state, onJump) {
       'aria-label': 'Your note so far',
     },
     [
-      el('span', { class: META, text: 'Your note so far' }),
+      el('div', { class: 'flex items-baseline justify-between gap-3' }, [
+        el('span', { class: META, text: 'Your note so far' }),
+        // The way to the summary, per NoteCard's onExpand: tapping the note
+        // to read the whole thing is a more natural route than a button in
+        // the action bar, and it leaves that bar the two slots the ActionBar
+        // spec gives it.
+        el('button', {
+          type: 'button',
+          class: 'cursor-pointer font-sans text-fact text-ink-muted underline',
+          dataset: { action: 'review' },
+          text: allAnswered(steps, state) ? 'Review ✓' : 'Review',
+          onclick: onExpand,
+        }),
+      ]),
       el('p', { class: 'font-serif text-note' }, [
         note,
         // The unwritten half, in a ghosted colour: the sentence is visibly
@@ -404,16 +429,21 @@ function renderOption(option, question, index, selected, onPick) {
       onclick: () => onPick(option.code),
     },
     [
+      // A solid disc, never a rim or a partial fill (WineSwatch). The
+      // prototype outlines its palest rung; the spec forbids it, and the spec
+      // wins — an outline on one rung and not the others makes the ramp read
+      // as two different kinds of thing. The label carries the meaning
+      // regardless (PRD §8), so a quiet disc costs nothing.
       option.swatch
         ? el('span', {
-            class: 'size-10 shrink-0 rounded-full border border-rule-strong',
+            class: 'size-10 shrink-0 rounded-full',
             style: `background:${option.swatch}`,
             'aria-hidden': 'true',
           })
         : null,
       !option.swatch && isScale
         ? el('span', {
-            class: `size-10 shrink-0 rounded-full border border-rule-strong bg-depth-${rung}`,
+            class: `size-10 shrink-0 rounded-full bg-depth-${rung}`,
             'aria-hidden': 'true',
           })
         : null,
@@ -507,7 +537,6 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
   const answered = state.answers[question.code] || { values: [], skipped: false };
   const p = progress(steps, state);
   const questions = questionStates(steps, state);
-  const elapsed = phaseElapsedMs(steps, state, step.phase, now);
   const pad = (n) => String(n).padStart(2, '0');
 
   const screen = el('section', { class: 'relative flex flex-1 flex-col' });
@@ -536,6 +565,13 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
           class: 'text-ink-faint',
           text: `${pad(p.step)}/${pad(p.total)}`,
         }),
+        // The phase clock, as a word rather than a meter. PRD §5 wants a
+        // pacing aid; the design forbids a second progress bar, and a filling
+        // bar under the note card read as exactly that. This says the same
+        // thing once, quietly, and only when there is something to say.
+        isOverBudget(steps, state, now)
+          ? el('span', { class: 'text-ink-faint', text: ' · over' })
+          : null,
       ]),
       el('button', {
         type: 'button',
@@ -548,30 +584,10 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
     ]),
   );
 
-  screen.append(el('div', { class: 'mt-3' }, [renderNoteCard(steps, state, handlers.onJump)]));
-
-  // A meter, not a countdown. It fills, it goes accent-coloured when the
-  // budget is spent, and it never does anything else — the taster advances,
-  // not us.
   screen.append(
-    el(
-      'div',
-      {
-        class: 'mt-3 h-0.5 w-full rounded-full bg-rule',
-        role: 'progressbar',
-        'aria-label': 'Time in this phase',
-        'aria-valuenow': String(Math.round(elapsed / 1000)),
-        'aria-valuemax': String(step.phaseSeconds),
-      },
-      [
-        el('div', {
-          class: `h-0.5 rounded-full ${
-            isOverBudget(steps, state, now) ? 'bg-accent' : 'bg-accent-quiet'
-          }`,
-          style: `width:${Math.min(100, (elapsed / (step.phaseSeconds * 1000)) * 100)}%`,
-        }),
-      ],
-    ),
+    el('div', { class: 'mt-3' }, [
+      renderNoteCard(steps, state, handlers.onJump, handlers.onReview),
+    ]),
   );
 
   if (state.paused) {
@@ -696,10 +712,13 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
       [
         el('button', {
           type: 'button',
-          class: `${SECONDARY} font-normal`,
-          dataset: { action: 'review' },
-          text: allAnswered(steps, state) ? 'Review ✓' : 'Review',
-          onclick: handlers.onReview,
+          class: SECONDARY,
+          dataset: { action: 'back' },
+          text: '←',
+          'aria-label': questions[state.cursor - 1]
+            ? `Back to ${questions[state.cursor - 1].short}`
+            : 'Back to setup',
+          onclick: handlers.onBack,
         }),
         el('button', {
           type: 'button',
