@@ -16,9 +16,10 @@
  *      behind a toggle. Every option carries its own guidance, because the
  *      difference between medium and high acidity is the entire difficulty
  *      and a label alone teaches nobody.
- *   2. **You can see where you are.** A phase rail and a question rail, both
- *      tappable, showing answered / skipped / not yet. Back and Next name
- *      where they go rather than saying "back" and "next".
+ *   2. **You can see where you are.** One rail of every question in the
+ *      session, filling in as they are answered, tappable, with a hairline
+ *      where the phase changes. Back and Next name where they go rather than
+ *      saying "back" and "next".
  *   3. **It never scores you.** No streaks, no right answers, nothing that
  *      reads as wrong (PRD §7).
  *
@@ -33,7 +34,6 @@ import {
   isFinished,
   isOverBudget,
   phaseElapsedMs,
-  phaseStates,
   progress,
   questionStates,
 } from './session_core.js';
@@ -77,7 +77,7 @@ const BUTTON =
 const PRIMARY = `${BUTTON} bg-accent text-accent-contrast`;
 const SECONDARY = `${BUTTON} border border-rule text-ink-muted`;
 
-/** Marker styles for the question rail, by answer state. */
+/** Marker styles for the progress rail, by answer state. */
 const MARKER = {
   answered: 'bg-accent',
   skipped: 'border border-dashed border-ink-muted',
@@ -212,86 +212,68 @@ export function renderStorageWarning() {
 }
 
 /**
- * Render the phase rail: all four phases, where you are, what is done.
+ * Render the progress rail: every question in the session, in one run.
  *
- * Tappable, so a taster can go back to Look from Conclude without stepping
- * through twenty questions.
+ * One marker per question, start to finish, filling in as they are answered —
+ * not four groups under four headings. The taster is walking a single
+ * sequence, and splitting the rail by phase made them count twice to work out
+ * where they were. Phase changes are a thin separator; the phase itself is
+ * named under the actions, where the question count already sits.
+ *
+ * Answered, skipped and not-yet stay three distinct marks. "I decided I was
+ * unsure" and "I have not got there yet" are different facts, and a
+ * done/not-done fill collapses exactly the distinction PRD §6.1 asks the app
+ * to keep.
  *
  * @param {Array<object>} steps
  * @param {object} state
  * @param {(index: number) => void} onJump
  * @returns {HTMLElement}
  */
-export function renderPhaseRail(steps, state, onJump) {
-  return el(
-    'nav',
-    { class: 'flex gap-2', 'aria-label': 'Phases' },
-    phaseStates(steps, state).map((phase) => {
-      const current = phase.status === 'current';
-      return el(
+export function renderProgressRail(steps, state, onJump) {
+  const rail = el('nav', {
+    class: 'flex flex-wrap items-center gap-y-1',
+    'aria-label': 'All questions',
+  });
+
+  questionStates(steps, state).forEach((question) => {
+    // A hairline where the phase changes. Decorative, and hidden from the
+    // accessibility tree — each marker names its own phase instead, which
+    // carries the grouping without depending on seeing the gap.
+    if (question.startsPhase && question.index > 0) {
+      rail.append(
+        el('span', { class: 'mx-1 h-3 w-px bg-rule', 'aria-hidden': 'true' }),
+      );
+    }
+
+    rail.append(
+      el(
         'button',
         {
           type: 'button',
-          class:
-            'flex-1 cursor-pointer rounded-card border px-2 py-2 font-sans text-meta ' +
-            'tracking-widest uppercase ' +
-            (current
-              ? 'border-accent text-accent'
-              : 'border-rule text-ink-muted hover:text-ink'),
-          'aria-current': current ? 'step' : null,
-          dataset: { phase: phase.code, status: phase.status },
-          onclick: () => onJump(phase.firstStep),
+          // Small mark, larger hit area: the padding is the tap target.
+          // Kept tight so twenty markers plus their separators fit one line
+          // at the reading measure — a rail that wraps to a stranded second
+          // row stops reading as one sequence, which is the whole point.
+          class: 'cursor-pointer p-1',
+          'aria-label': `${question.phaseLabel}, ${question.short}: ${question.status}`,
+          'aria-current': question.current ? 'step' : null,
+          title: `${question.short} — ${question.status}`,
+          dataset: { index: String(question.index), status: question.status },
+          onclick: () => onJump(question.index),
         },
         [
-          el('span', { class: 'block', text: phase.label }),
           el('span', {
-            class: 'block text-ink-muted',
-            text: `${phase.answered}/${phase.total}`,
+            class:
+              `block size-3 rounded-full ${MARKER[question.status]} ` +
+              (question.current ? 'ring-2 ring-accent ring-offset-2 ring-offset-paper' : ''),
           }),
         ],
-      );
-    }),
-  );
-}
+      ),
+    );
+  });
 
-/**
- * Render the question rail for the phase being tasted.
- *
- * Answered, skipped and not-yet are three distinct marks rather than a
- * done/not-done flag: "I decided I was unsure" and "I have not got there yet"
- * are different facts, and the taster needs to tell them apart at a glance.
- *
- * @param {Array<object>} steps
- * @param {object} state
- * @param {(index: number) => void} onJump
- * @returns {HTMLElement}
- */
-export function renderQuestionRail(steps, state, onJump) {
-  const step = currentStep(steps, state);
-  const inPhase = questionStates(steps, state).filter((q) => q.phase === step.phase);
-
-  return el(
-    'nav',
-    {
-      class: 'flex flex-wrap items-center gap-2',
-      'aria-label': 'Questions in this phase',
-    },
-    inPhase.map((question) =>
-      el('button', {
-        type: 'button',
-        class:
-          `size-6 cursor-pointer rounded-full ${MARKER[question.status]} ` +
-          (question.current ? 'ring-2 ring-accent ring-offset-2 ring-offset-paper' : ''),
-        // The marker is a dot; everything it means has to be in the label, or
-        // it means nothing to a screen reader and not much to anyone else.
-        'aria-label': `${question.short}: ${question.status}`,
-        'aria-current': question.current ? 'step' : null,
-        title: `${question.short} — ${question.status}`,
-        dataset: { index: String(question.index), status: question.status },
-        onclick: () => onJump(question.index),
-      }),
-    ),
-  );
+  return rail;
 }
 
 /**
@@ -357,9 +339,8 @@ export function renderQuestion({ steps, state, now, handlers }) {
   const screen = el('section', { class: 'flex min-h-full flex-col gap-5' });
 
   screen.append(
-    renderPhaseRail(steps, state, handlers.onJump),
-    el('div', { class: 'flex items-center justify-between gap-4' }, [
-      renderQuestionRail(steps, state, handlers.onJump),
+    el('div', { class: 'flex items-start justify-between gap-4' }, [
+      renderProgressRail(steps, state, handlers.onJump),
       el('button', {
         type: 'button',
         class: 'font-sans text-caption text-ink-muted underline cursor-pointer',

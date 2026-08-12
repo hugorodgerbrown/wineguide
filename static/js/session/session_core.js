@@ -388,10 +388,16 @@ export function goTo(steps, state, index, now) {
  * "I have not got to this yet", and a single done/not-done flag collapses
  * exactly the distinction PRD §6.1 asks the app to keep.
  *
+ * `startsPhase` lets the rail draw one continuous run of markers with a
+ * separator where the phases change, rather than four separate groups under
+ * four headings. The taster is walking one sequence; the rail should look
+ * like one sequence.
+ *
  * @param {Array<object>} steps
  * @param {object} state
- * @returns {Array<{index: number, phase: string, short: string, prompt: string,
- *   status: string, current: boolean}>}
+ * @returns {Array<{index: number, phase: string, phaseLabel: string,
+ *   short: string, prompt: string, status: string, current: boolean,
+ *   startsPhase: boolean}>}
  */
 export function questionStates(steps, state) {
   return steps.map((step, index) => {
@@ -402,53 +408,14 @@ export function questionStates(steps, state) {
     return {
       index,
       phase: step.phase,
+      phaseLabel: step.phaseLabel,
       short: step.question.short || step.question.prompt,
       prompt: step.question.prompt,
       status,
       current: index === state.cursor,
+      startsPhase: index === 0 || steps[index - 1].phase !== step.phase,
     };
   });
-}
-
-/**
- * A per-phase summary, for the phase rail.
- *
- * @param {Array<object>} steps
- * @param {object} state
- * @returns {Array<{code: string, label: string, firstStep: number,
- *   answered: number, total: number, status: string}>}
- */
-export function phaseStates(steps, state) {
-  const questions = questionStates(steps, state);
-  const order = [];
-  const byPhase = new Map();
-
-  steps.forEach((step, index) => {
-    if (!byPhase.has(step.phase)) {
-      order.push(step.phase);
-      byPhase.set(step.phase, {
-        code: step.phase,
-        label: step.phaseLabel,
-        firstStep: index,
-        answered: 0,
-        total: 0,
-        status: 'todo',
-      });
-    }
-    const phase = byPhase.get(step.phase);
-    phase.total += 1;
-    if (questions[index].status !== 'unanswered') phase.answered += 1;
-  });
-
-  const currentPhase = currentStep(steps, state)?.phase;
-  order.forEach((code) => {
-    const phase = byPhase.get(code);
-    if (code === currentPhase) phase.status = 'current';
-    else if (phase.answered === phase.total) phase.status = 'done';
-    else if (phase.answered > 0) phase.status = 'partial';
-  });
-
-  return order.map((code) => byPhase.get(code));
 }
 
 /**

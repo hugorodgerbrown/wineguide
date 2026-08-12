@@ -22,7 +22,6 @@ import {
   next,
   pause,
   phaseElapsedMs,
-  phaseStates,
   previous,
   progress,
   questionStates,
@@ -531,50 +530,23 @@ describe('questionStates', () => {
     state = answer(STEPS, state, 'lemon', at(6));
     expect(questionStates(STEPS, state)[2].status).toBe('unanswered');
   });
-});
 
-describe('phaseStates', () => {
-  it('reports one entry per phase, in running order', () => {
-    expect(phaseStates(STEPS, fresh()).map((p) => p.code)).toEqual(['look', 'smell']);
-  });
-
-  it('counts answered against total', () => {
-    const state = answer(STEPS, fresh(), 'clear', at(5));
-    expect(phaseStates(STEPS, state)[0]).toMatchObject({ answered: 1, total: 2 });
-  });
-
-  it('counts a skip as dealt with', () => {
-    const state = skip(STEPS, fresh(), at(5));
-    expect(phaseStates(STEPS, state)[0].answered).toBe(1);
-  });
-
-  it('marks the phase being tasted as current', () => {
-    expect(phaseStates(STEPS, fresh()).map((p) => p.status)).toEqual([
-      'current',
-      'todo',
+  it('marks the first question of each phase', () => {
+    // The rail draws one continuous run with a separator here, rather than
+    // four groups under four headings.
+    expect(questionStates(STEPS, fresh()).map((q) => q.startsPhase)).toEqual([
+      true,
+      false,
+      true,
     ]);
   });
 
-  it('marks a finished phase done once you have left it', () => {
-    let state = answer(STEPS, fresh(), 'clear', at(5));
-    state = next(STEPS, state, at(6));
-    state = answer(STEPS, state, 'ruby', at(7));
-    state = next(STEPS, state, at(8));
-
-    expect(phaseStates(STEPS, state).map((p) => p.status)).toEqual([
-      'done',
-      'current',
+  it('carries the phase label each marker announces', () => {
+    expect(questionStates(STEPS, fresh()).map((q) => q.phaseLabel)).toEqual([
+      'Look',
+      'Look',
+      'Smell',
     ]);
-  });
-
-  it('marks a half-finished phase partial', () => {
-    let state = answer(STEPS, fresh(), 'clear', at(5));
-    state = goTo(STEPS, state, 2, at(6));
-    expect(phaseStates(STEPS, state)[0].status).toBe('partial');
-  });
-
-  it('gives each phase the step to jump to', () => {
-    expect(phaseStates(STEPS, fresh()).map((p) => p.firstStep)).toEqual([0, 2]);
   });
 });
 
