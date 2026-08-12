@@ -1,7 +1,7 @@
 # wineguide
 
-A short, opinionated wine guide. Django + HTMX on the server, vanilla JS for
-progressive enhancement, no front-end build step.
+A short, opinionated wine guide. Django + HTMX on the server, Tailwind for
+styling, vanilla JS for progressive enhancement.
 
 Right now it is a homepage: a hero, one wine pick, and a control that fetches
 the next one.
@@ -10,7 +10,7 @@ the next one.
 
 - Python 3.14 (`.python-version`)
 - [uv](https://docs.astral.sh/uv/)
-- Node 20 (JS unit tests and vendoring only — nothing is bundled)
+- Node 20 (Tailwind, JS unit tests, vendoring)
 
 ## Setup
 
@@ -24,10 +24,16 @@ Put a real key in `SECRET_KEY`:
 uv run python -c "from django.core.management.utils import get_random_secret_key as k; print(k())"
 ```
 
-Then install everything and start the server:
+Then install everything, build the stylesheet, and start the server:
 
 ```bash
-uv sync && npm install && uv run python manage.py migrate && uv run python manage.py runserver
+uv sync && npm install && npm run build:css && uv run python manage.py migrate && uv run python manage.py runserver
+```
+
+While working on templates, keep Tailwind watching in a second terminal:
+
+```bash
+npm run watch:css
 ```
 
 Install the git hooks once:
@@ -35,6 +41,9 @@ Install the git hooks once:
 ```bash
 uv run pre-commit install
 ```
+
+`.env` is gitignored, so a fresh git worktree needs its own copy before the
+dev server will boot.
 
 ## Running things
 
@@ -74,14 +83,38 @@ uv run tox -e e2e -- tests/e2e/test_home.py
 apps/public/        The public site: views, URLs, templates, the wine data
 config/             Settings (base / development / production), URLs, WSGI
 templates/          Site-wide templates — base.html and its includes
-static/css/         One hand-written stylesheet; custom properties, no build
+src/css/main.css    Tailwind entry point and every design token
+static/css/         Build output (output.css, gitignored)
 static/js/          theme.js + theme_core.js
 static/js/vendor/   Third-party JS, copied from node_modules and committed
 tests/public/       pytest — views, templates, data
 tests/js/           Vitest — the client-side modules
 tests/e2e/          Playwright — the paths that need a real browser
+bin/build.sh        Deploy build — dependencies, CSS, collectstatic, migrate
 bin/vendor-js.mjs   Copies third-party browser JS out of node_modules
 ```
+
+## Styling
+
+Tailwind v4, compiled by its CLI. There is no `tailwind.config.js` — v4 is
+configured in CSS, and [src/css/main.css](src/css/main.css) is both the entry
+point and the single source of design tokens.
+
+Two rules:
+
+- **No arbitrary values in templates.** `text-[13px]` hard-codes a decision
+  where a token would record one. If a size is missing from the scale, add it
+  to `@theme` and give it a name.
+- **No `dark:` variants.** The palette flips at the variable level — `@theme`
+  holds the light values, and a `prefers-color-scheme` block plus two
+  `[data-theme]` blocks reassign them. Utilities generated from `@theme`
+  reference the variables rather than inlining them, so `bg-paper` is already
+  correct in both themes. The explicit `[data-theme]` blocks come last so a
+  reader's manual choice beats their OS preference in either direction.
+
+`static/css/output.css` is a build artefact and is not committed. Every path
+that serves it builds it first: `npm run build:css` locally, `commands_pre` in
+the e2e tox env, and `bin/build.sh` on deploy.
 
 ## How the front end works
 
@@ -136,6 +169,13 @@ Two conventions worth knowing before editing a workflow:
   loud but not required.
 
 ## Deployment
+
+Build with [bin/build.sh](bin/build.sh) — it installs runtime dependencies
+from `uv.lock`, compiles the stylesheet, runs `collectstatic` and applies
+migrations. The Tailwind step is not optional: `output.css` is gitignored, so
+a fresh checkout does not have it, and `collectstatic` under
+`ManifestStaticFilesStorage` fails on a `{% static %}` reference it cannot
+resolve.
 
 `config.settings.production` expects `SECRET_KEY`, `ALLOWED_HOSTS` and
 `DATABASE_URL`, serves static files through WhiteNoise, and turns on the usual

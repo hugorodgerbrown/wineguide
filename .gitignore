@@ -15,6 +15,12 @@ venv/
 env/
 node_modules/
 
+# Tailwind build output, regenerated from src/css/main.css by `npm run
+# build:css`. Not committed: a compiled artefact in the tree is one more thing
+# that can be stale, and every path that serves it (dev server, e2e, deploy)
+# builds it first.
+static/css/output.css
+
 # Django
 db.sqlite3
 staticfiles/

@@ -38,6 +38,12 @@ class TestHome:
     def test_loads_htmx(self, client: Client) -> None:
         assert "js/vendor/htmx.min.js" in client.get(HOME).content.decode()
 
+    def test_loads_the_compiled_stylesheet(self, client: Client) -> None:
+        """output.css is a gitignored build artefact, so nothing else in the
+        Python suite would notice the link going missing.
+        """
+        assert "css/output.css" in client.get(HOME).content.decode()
+
     def test_title_is_just_the_site_name(self, client: Client) -> None:
         """The homepage IS the site, so _page_meta must not double it up."""
         content = client.get(HOME).content.decode()

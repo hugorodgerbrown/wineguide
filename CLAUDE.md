@@ -4,9 +4,10 @@ Project conventions. Read [README.md](README.md) first for setup and commands.
 
 ## Stack
 
-Django 6 + HTMX, served straight from `static/` — no bundler, no CSS
-framework, no CDN. Python 3.14, managed with uv. `tox` is the entrypoint for
-every check; CI runs the same envs, so a green `tox` locally means a green CI.
+Django 6 + HTMX, Tailwind v4 for styling, everything else served straight from
+`static/` — no bundler, no CDN. Python 3.14, managed with uv. `tox` is the
+entrypoint for every check; CI runs the same envs, so a green `tox` locally
+means a green CI.
 
 ## Invariants
 
@@ -26,6 +27,9 @@ every check; CI runs the same envs, so a green `tox` locally means a green CI.
 6. **Coverage floor is 90%** on `apps/` and `config/`. Modules only a deployed
    process imports (`production.py`, `wsgi.py`) are omitted, not exempted by
    lowering the bar.
+7. **Design decisions live in `src/css/main.css`, not in templates.** No
+   arbitrary Tailwind values (`text-[13px]`, `bg-[#7b1e3c]`) and no `dark:`
+   variants — see Styling below.
 
 ## Where things go
 
@@ -37,9 +41,38 @@ every check; CI runs the same envs, so a green `tox` locally means a green CI.
 - `templates/` — site-wide. `base.html` and `includes/`.
 - `apps/*/templates/<app>/` — page and fragment templates for that app.
   Fragments are prefixed with an underscore.
+- `src/css/main.css` — the Tailwind entry point and every design token. There
+  is no `tailwind.config.js`; v4 is configured in CSS.
+- `static/css/output.css` — build output, gitignored. Never edit it, and never
+  commit it.
 - `static/js/` — one module per concern. Logic that can be tested without a
   DOM goes in a `*_core.js` module; the sibling module does the DOM wiring.
   Third-party JS is vendored by `bin/vendor-js.mjs` and committed.
+
+## Styling
+
+Tailwind utilities in templates, tokens in `src/css/main.css`. Two rules, both
+of which exist so that a visual decision is recorded in one place:
+
+- **No arbitrary values in templates.** `text-[13px]` states a size without
+  saying what it is for. Add a named token to `@theme` instead — the scale
+  already carries `text-display`, `text-body`, `text-fact`, `text-caption`,
+  `text-meta`.
+- **No `dark:` variants.** The palette flips at the variable level: `@theme`
+  holds the light values, and a `prefers-color-scheme` block plus two
+  `[data-theme]` blocks reassign them. Utilities generated from `@theme`
+  reference the variables rather than inlining them, so `bg-paper` is already
+  correct in both themes. Reach for `dark:` and you have created a second
+  place where the theme is decided.
+
+`@theme static` is deliberate: without it, Tailwind emits only the variables
+some utility currently references, and a token given a dark value but no
+utility yet would resolve to nothing.
+
+Everything that serves the stylesheet builds it first — `npm run build:css`,
+`commands_pre` in the e2e tox env, `bin/build.sh` on deploy. A rule that
+cannot be a utility (an htmx runtime state, a third-party override) goes in
+the components layer at the bottom of `main.css`, with a comment saying why.
 
 ## Testing
 

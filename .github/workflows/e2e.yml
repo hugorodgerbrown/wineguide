@@ -36,6 +36,16 @@ jobs:
         with:
           python-version: "3.14"
 
+      # The e2e tox env builds static/css/output.css before starting the live
+      # server (it is gitignored), which needs npx.
+      - name: Set up Node (20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Create .env
         run: |
           echo "SECRET_KEY=ci-e2e-secret-key" > .env

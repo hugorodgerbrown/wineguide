@@ -1,0 +1,141 @@
+/*
+ * src/css/main.css — Tailwind entry point and the single source of design
+ * tokens. Compiled to static/css/output.css, which is a build artefact and is
+ * gitignored:
+ *
+ *     npm run build:css     # once
+ *     npm run watch:css     # while working
+ *
+ * Everything visual belongs in a token here and a utility class in the
+ * template. Do NOT add layout or spacing rules to this file — if you are
+ * reaching for flex, grid, padding or margin, use a utility instead. Rules
+ * that cannot be expressed as utilities (state selectors a template cannot
+ * name, third-party overrides) go in the components layer at the bottom, with
+ * a comment saying why.
+ *
+ * No arbitrary values in templates either — text-[13px] hard-codes a decision
+ * where a token would record one. If a size is missing from the scale below,
+ * add it here and give it a name.
+ */
+
+@import "tailwindcss";
+
+/* ———————————————————————————————————————————
+   1. DESIGN TOKENS
+   ———————————————————————————————————————————
+   `static` so every token reaches the stylesheet whether or not a utility
+   currently references it. The theme overrides in section 2 reassign these
+   variables at runtime, which only works if they were emitted in the first
+   place — without `static`, adding a dark-mode value for a token no template
+   happens to use yet produces a variable that resolves to nothing. */
+
+@theme static {
+  /* Fonts. The serif carries body copy, the sans carries UI chrome —
+     labels, buttons, the footer. */
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Type scale. The gaps Tailwind's default ramp leaves for this design,
+     named for the thing they size rather than their measurement. */
+  --text-display: clamp(2rem, 6vw, 3rem); /* hero heading            */
+  --text-display--line-height: 1.1;
+  --text-body: 1.0625rem; /* prose body              */
+  --text-body--line-height: 1.6;
+  --text-fact: 0.9375rem; /* fact-list value         */
+  --text-caption: 0.8125rem; /* footer, toggle, button  */
+  --text-meta: 0.6875rem; /* uppercase label         */
+
+  --tracking-eyebrow: 0.14em;
+
+  /* Colours. Light values; section 2 flips them.
+       ink            body copy
+       ink-muted      secondary copy, labels
+       paper          page background
+       paper-raised   card surfaces sitting on paper
+       rule           hairlines and borders
+       accent         the one colour that carries emphasis
+       accent-contrast  copy placed on accent */
+  --color-ink: #241c22;
+  --color-ink-muted: #6b5f66;
+  --color-paper: #fbf8f5;
+  --color-paper-raised: #ffffff;
+  --color-rule: #e3dbd4;
+  --color-accent: #7b1e3c;
+  --color-accent-contrast: #ffffff;
+
+  --radius-card: 4px;
+
+  /* Reading measure — `max-w-measure` on the main column. */
+  --container-measure: 34rem;
+}
+
+/* ———————————————————————————————————————————
+   2. THEME OVERRIDES
+   ———————————————————————————————————————————
+   Three layers, and the order matters. Section 1 is the light default; the
+   media query flips it for a reader whose OS asks for dark; the [data-theme]
+   blocks override both, because an explicit choice beats an inferred one in
+   either direction. static/js/theme.js sets that attribute, and an inline
+   script in base.html applies the stored value before first paint.
+
+   Utilities generated from @theme reference the variables rather than
+   inlining their values, so reassigning a variable here re-themes every
+   utility that uses it. There are no dark: variants anywhere in the
+   templates, and there should not be — the palette is the theme. */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #f2ece8;
+    --color-ink-muted: #a99ea5;
+    --color-paper: #171316;
+    --color-paper-raised: #211b20;
+    --color-rule: #3a3138;
+    --color-accent: #e0879f;
+    --color-accent-contrast: #171316;
+  }
+}
+
+:root[data-theme="light"] {
+  --color-ink: #241c22;
+  --color-ink-muted: #6b5f66;
+  --color-paper: #fbf8f5;
+  --color-paper-raised: #ffffff;
+  --color-rule: #e3dbd4;
+  --color-accent: #7b1e3c;
+  --color-accent-contrast: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --color-ink: #f2ece8;
+  --color-ink-muted: #a99ea5;
+  --color-paper: #171316;
+  --color-paper-raised: #211b20;
+  --color-rule: #3a3138;
+  --color-accent: #e0879f;
+  --color-accent-contrast: #171316;
+}
+
+/* ———————————————————————————————————————————
+   3. COMPONENT EXCEPTIONS
+   ———————————————————————————————————————————
+   Only what a utility cannot express. Each rule needs a reason. */
+
+@layer components {
+  /* htmx adds .htmx-request to the element while its request is in flight.
+     No template can put a utility on a class htmx applies at runtime, so the
+     in-flight state lives here. */
+  .htmx-request {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -11,10 +11,12 @@ link with JavaScript switched off.
     {% include "includes/_page_meta.html" with title=SITE_NAME description=_("A short, opinionated guide to bottles worth drinking.") %}
 {% endblock page_meta %}
 {% block content %}
-    <section class="hero">
-        <p class="eyebrow">{% translate "Wineguide" %}</p>
-        <h1>{% translate "Bottles worth drinking." %}</h1>
-        <p class="hero__lede">
+    <section>
+        <p class="mb-2 font-sans text-meta font-semibold tracking-eyebrow text-accent uppercase">
+            {% translate "Wineguide" %}
+        </p>
+        <h1 class="mb-4 text-display font-medium">{% translate "Bottles worth drinking." %}</h1>
+        <p class="text-lg text-ink-muted">
             {% blocktranslate %}No scores out of a hundred, no tasting-note bingo. One wine at a time, and why it is
                 worth your evening.{% endblocktranslate %}
         </p>
