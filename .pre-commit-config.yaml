@@ -1,0 +1,51 @@
+repos:
+  # Keep `rev` in lockstep with the exact ruff pin in pyproject.toml's `lint`
+  # dependency group. Two versions of the same formatter is how a commit that
+  # passes locally fails in CI.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # Vendored third-party JS is excluded from both whitespace hooks: it is
+      # copied verbatim out of node_modules by bin/vendor-js.mjs, and a hook
+      # that rewrites it means every refresh lands as a two-step diff.
+      - id: trailing-whitespace
+        exclude: ^static/js/vendor/
+      - id: end-of-file-fixer
+        exclude: ^static/js/vendor/
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: debug-statements
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # Local hooks point straight at the in-project venv's binaries rather than
+  # going through `uv run`, so they work identically from the CLI and from GUI
+  # git clients that launch git with a minimal environment and no shell PATH.
+  - repo: local
+    hooks:
+      - id: djangofmt
+        name: djangofmt
+        entry: .venv/bin/djangofmt
+        language: system
+        types_or: [html]
+
+      - id: mypy
+        name: mypy
+        # The target list MUST match tox.ini's [testenv:mypy] command, so a
+        # local commit cannot pass while CI mypy fails on a path the hook
+        # skipped.
+        entry: .venv/bin/mypy apps/ config/ tests/
+        language: system
+        types: [python]
+        pass_filenames: false

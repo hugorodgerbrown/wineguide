@@ -1,0 +1,171 @@
+[project]
+name = "wineguide"
+version = "0.1.0"
+description = "Django + HTMX wine guide"
+authors = [{ name = "Hugo Rodger-Brown" }]
+requires-python = ">=3.14,<4"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "Django>=6.0,<7",
+    "django-htmx>=1.21.0,<2",
+    "python-decouple>=3.8,<4",
+    "dj-database-url>=3.1.2,<4",
+    "psycopg[binary]>=3.3.4,<4",
+    "whitenoise>=6.12.0,<7",
+    "gunicorn>=26.0.0,<27",
+]
+
+[dependency-groups]
+# Purpose-scoped groups map 1:1 to tox envs — see tox.ini's `dependency_groups`.
+# Each env syncs only its own group (tox-uv injects `--no-default-groups`
+# whenever `dependency_groups` is set), so e.g. `mypy` never drags in
+# playwright. `dev` composes all of them so a bare `uv sync` installs
+# everything a local checkout needs.
+test = [
+    "coverage>=7,<8",
+    "pytest>=9.0.3,<10",
+    "pytest-cov>=7.1.0,<8",
+    "pytest-django>=4.12.0,<5",
+    "pytest-xdist>=3.8.0,<4",
+]
+type = [
+    "mypy>=2.3.0,<3",
+    "django-stubs>=6.0.2,<7",
+    # mypy type-checks tests/ too, so it needs the same test-authoring
+    # packages the `test` group installs or those call sites collapse to Any.
+    { include-group = "test" },
+]
+lint = [
+    # Pinned EXACT (not a range) so `uv lock --upgrade` cannot float ruff
+    # ahead of the .pre-commit-config.yaml pin and drift CI against the local
+    # hook. Bump both in lockstep.
+    "ruff==0.16.1",
+    "djangofmt>=0.2.6,<0.3",
+]
+sast = ["semgrep>=1.171.0,<2"]
+e2e = [
+    "playwright>=1.0,<2",
+    "pytest-playwright>=0.7,<0.9",
+    { include-group = "test" },
+]
+dev = [
+    "pre-commit>=4.6.1,<5",
+    "tox>=4.52.1,<5",
+    "tox-uv>=1.0,<2",
+    { include-group = "test" },
+    { include-group = "type" },
+    { include-group = "lint" },
+    { include-group = "sast" },
+    { include-group = "e2e" },
+]
+
+[tool.uv]
+package = false
+default-groups = ["dev"]
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+python_version = "3.14"
+strict_optional = true
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+# Settings modules are built from `from .base import *`, which mypy cannot
+# follow well enough to be useful here. Add "*.migrations.*" alongside this
+# when the first model lands.
+module = ["*.settings.*"]
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.development"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.development"
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-n auto --cov=apps.public --cov=config --ignore=tests/e2e"
+
+[tool.coverage.run]
+source = ["apps.public", "config"]
+omit = [
+    "*/migrations/*",
+    "__init__.py",
+    # Only ever imported by a deployed process, so a unit run can neither
+    # execute them nor learn anything by trying. production.py is covered by
+    # `manage.py check --deploy` and wsgi.py by the deploy itself.
+    "config/settings/production.py",
+    "config/wsgi.py",
+]
+
+[tool.coverage.report]
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]
+
+[tool.ruff]
+line-length = 88
+# ruff 0.16 formats Python code blocks embedded in Markdown, rewriting
+# illustrative doc snippets into standalone-module form. Keep prose out.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "A",  # flake8-builtins
+    "C9", # mccabe
+    "D",  # pydocstyle
+    "E",  # pycodestyle (errors)
+    "F",  # Pyflakes
+    "I",  # isort
+    "S",  # flake8-bandit
+    "T2", # flake8-print
+    "W",  # pycodestyle (warnings)
+]
+ignore = [
+    "D203", # 1 blank line required before class docstring
+    "D212", # Multi-line docstring summary should start at the first line
+    "D213", # Multi-line docstring summary should start at the second line
+    "D403", # First word of the first line should be capitalized
+    "D404", # First word of the docstring should not be "This"
+    "D417", # Missing argument description in the docstring
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 8
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["D"]
+"*tests/*" = [
+    "D1",   # Missing docstrings
+    "D205", # 1 blank line required between summary line and description
+    "D400", # First line should end with a period
+    "D401", # First line should be in imperative mood
+    "D415", # First line should end with a period, question mark, exclamation
+    "E501", # Line too long
+    "S101", # Use of assert detected
+]
+"*/migrations/*" = [
+    "D1",   # Missing docstrings
+    "E501", # Line too long
+]
+"*/settings/*" = [
+    "F403", # from {name} import * used; unable to detect undefined names
+    "F405", # {name} may be undefined, or defined from star imports
+]

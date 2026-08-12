@@ -1,0 +1,49 @@
+# .github/workflows/js.yml — JS unit tests (Vitest / jsdom).
+#
+# Isolated from ci.yml so its Node setup and dependency install are scoped to
+# this workflow. Shaped the same way as the other workflows (unfiltered
+# triggers, read-only token) so it can be promoted to a required status check
+# later without re-litigating the path-filter trap described in ci.yml.
+
+name: JS unit tests (Vitest)
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  js:
+    name: JS unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      # tox is a Python tool that drives `npm ci && npm run test:js`, so both
+      # runtimes are needed — Python for tox itself, Node for Vitest.
+      - name: Set up Python (3.14)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node (20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tox and run the js env
+        run: |
+          pip install tox tox-uv
+          tox -e js

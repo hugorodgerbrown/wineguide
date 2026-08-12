@@ -1,0 +1,66 @@
+{% comment %}
+templates/base.html — Canonical layout for every page on the site.
+
+Blocks
+------
+page_meta  : page identity — <title> and meta description. Every page
+             overrides this with a single
+             {% include "includes/_page_meta.html" with title=… description=… %}
+             so a page cannot half-set its metadata or omit it by accident.
+extra_head : page-specific <head> content, loaded after site.css so
+             page-level overrides win.
+content    : the page body.
+extra_js   : scripts at the end of <body>.
+
+The theme-toggle button in the header is rendered hidden and revealed by
+static/js/theme.js. A control that cannot work without JavaScript should not
+be visible when JavaScript has not run.
+{% endcomment %}
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        {% block page_meta %}
+            {% include "includes/_page_meta.html" with title=SITE_NAME description=_("A short, opinionated guide to bottles worth drinking.") %}
+        {% endblock page_meta %}
+        <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+        {# Applies the stored theme before first paint, so a dark-theme reader #}
+        {# never sees a white flash. Must stay inline and stay in <head>. #}
+        <script>
+            (function () {
+                try {
+                    var stored = localStorage.getItem("wineguide.theme");
+                    if (stored === "light" || stored === "dark") {
+                        document.documentElement.dataset.theme = stored;
+                    }
+                } catch (e) {
+                    /* Storage disabled (private mode, blocked cookies) — keep the default theme. */
+                }
+            })();
+        </script>
+        <link rel="stylesheet" href="{% static 'css/site.css' %}?v={{ RELEASE_VERSION }}">
+        {% block extra_head %}{% endblock extra_head %}
+    </head>
+    <body>
+        <a class="skip-link" href="#main">{% translate "Skip to content" %}</a>
+        <header class="site-header">
+            <a class="wordmark" href="{% url 'public:home' %}">{{ SITE_NAME }}</a>
+            <button id="theme-toggle" class="theme-toggle" type="button" hidden aria-pressed="false">
+                <span class="theme-toggle__label">{% translate "Dark mode" %}</span>
+            </button>
+        </header>
+        <main id="main" class="site-main">
+            {% block content %}{% endblock content %}
+        </main>
+        <footer class="site-footer">
+            <p>
+                {% blocktranslate %}Tasting notes are one person's opinion. Drink what you like.{% endblocktranslate %}
+            </p>
+        </footer>
+        <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>
+        <script src="{% static 'js/theme.js' %}?v={{ RELEASE_VERSION }}" type="module"></script>
+        {% block extra_js %}{% endblock extra_js %}
+    </body>
+</html>

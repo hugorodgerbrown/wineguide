@@ -1,0 +1,13 @@
+{
+  "name": "wineguide",
+  "private": true,
+  "scripts": {
+    "test:js": "vitest run",
+    "vendor": "node bin/vendor-js.mjs"
+  },
+  "devDependencies": {
+    "htmx.org": "^2.0.4",
+    "jsdom": "^25.0.1",
+    "vitest": "^3.0.0"
+  }
+}

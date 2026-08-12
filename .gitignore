@@ -1,0 +1,46 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+build/
+dist/
+
+# Environments
+.env
+.env.*
+!.env.example
+.envrc
+.venv/
+venv/
+env/
+node_modules/
+
+# Django
+db.sqlite3
+staticfiles/
+mediafiles/
+*.log
+
+# Test / tooling caches
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Claude Code
+.claude/settings.local.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

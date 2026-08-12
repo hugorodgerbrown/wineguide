@@ -1,0 +1,62 @@
+# .github/workflows/e2e.yml — End-to-end browser tests (Playwright / Chromium).
+#
+# Isolated from ci.yml so the Chromium install and its cache are scoped to this
+# workflow and do not slow the main matrix. The browser cache is keyed on
+# uv.lock, so a new entry is created only when the Playwright package version
+# changes; a miss falls back to a clean install (~60s on a hosted runner).
+
+name: End-to-end (Playwright)
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Playwright smoke tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python (3.14)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Create .env
+        run: |
+          echo "SECRET_KEY=ci-e2e-secret-key" > .env
+          echo "DJANGO_SETTINGS_MODULE=config.settings.development" >> .env
+
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Install and run tox
+        run: |
+          pip install tox tox-uv
+          tox -e e2e
+
+      - name: Upload the Playwright trace on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,0 +1,38 @@
+{% comment %}
+apps/public/templates/public/_wine_panel.html — One wine pick.
+
+Rendered inside home.html on a full page load, and returned on its own by
+``wine_pick`` for an HTMX swap. The "Show me another" control is a real link
+to a real URL: with HTMX loaded it swaps this panel in place, and without it
+the browser follows the href and gets the same pick as a full page.
+
+The outer id is the swap target, so it must survive the swap —
+hx-swap="outerHTML" replaces this element with the next render of this same
+template, which carries the id again.
+{% endcomment %}
+{% load i18n %}
+<article id="wine-panel" class="wine-panel" aria-live="polite">
+    <p class="wine-panel__region">{{ wine.region }}, {{ wine.country }}</p>
+    <h2 class="wine-panel__title">
+        {{ wine.producer }} <em>{{ wine.name }}</em> {{ wine.year }}
+    </h2>
+    <dl class="wine-panel__facts">
+        <div>
+            <dt>{% translate "Grape" %}</dt>
+            <dd>{{ wine.grape }}</dd>
+        </div>
+        <div>
+            <dt>{% translate "Vintage" %}</dt>
+            <dd>{{ wine.year }}</dd>
+        </div>
+    </dl>
+    <p class="wine-panel__note">{{ wine.note }}</p>
+    <a
+        class="button"
+        href="{% url 'public:wine_pick' %}?index={{ next_index }}"
+        hx-get="{% url 'public:wine_pick' %}?index={{ next_index }}"
+        hx-target="#wine-panel"
+        hx-swap="outerHTML"
+        hx-push-url="false"
+    >{% translate "Show me another" %}</a>
+</article>

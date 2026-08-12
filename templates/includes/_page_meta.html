@@ -1,0 +1,21 @@
+{% comment %}
+templates/includes/_page_meta.html — The single emitter of page identity.
+
+Include it from a page's {% block page_meta %} with `title` and `description`:
+
+    {% include "includes/_page_meta.html" with title=wine.title description=wine.note %}
+
+One emitter, so a page sets all of its metadata or none of it.
+
+The site name is appended unless the title already IS the site name — the
+homepage's title is the site, and "Wineguide · Wineguide" helps nobody.
+{% endcomment %}
+<title>
+    {% if title == SITE_NAME %}{{ SITE_NAME }}{% else %}{{ title }} · {{ SITE_NAME }}{% endif %}
+</title>
+<meta name="description" content="{{ description }}">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:site_name" content="{{ SITE_NAME }}">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% comment %}
+apps/public/templates/public/home.html — The homepage.
+
+Also the full-page response from ``wine_pick`` when the request did not come
+from HTMX, which is what makes the "another one" control work as an ordinary
+link with JavaScript switched off.
+{% endcomment %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=SITE_NAME description=_("A short, opinionated guide to bottles worth drinking.") %}
+{% endblock page_meta %}
+{% block content %}
+    <section class="hero">
+        <p class="eyebrow">{% translate "Wineguide" %}</p>
+        <h1>{% translate "Bottles worth drinking." %}</h1>
+        <p class="hero__lede">
+            {% blocktranslate %}No scores out of a hundred, no tasting-note bingo. One wine at a time, and why it is
+                worth your evening.{% endblocktranslate %}
+        </p>
+    </section>
+    {% include "public/_wine_panel.html" %}
+{% endblock content %}

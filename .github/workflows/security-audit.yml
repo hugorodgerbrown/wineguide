@@ -1,0 +1,157 @@
+# .github/workflows/security-audit.yml — Dependency CVE audit, SAST, and a
+# secret scan.
+#
+# The weekly cron matters as much as the push runs: a newly-published advisory
+# affects a lockfile that has not changed, so a push-only audit would never see
+# it.
+#
+# Two dependency-audit jobs, deliberately separate:
+#   * `Security audit` — the runtime gate (--no-dev). Make this a required
+#     check.
+#   * `Dependency audit (dev + npm)` — detection only, covers the dev groups
+#     and the npm tree. Do NOT make it required: an advisory in a linter must
+#     be visible without being able to block a production release.
+#
+# The cron run scans full history, so it can fail on a commit no PR ever
+# touched. Treat a red `Secret scan` as release-blocking, not informational.
+
+name: Security audit
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+
+  # Push and pull_request runs scan only their commit range, so without this
+  # the only way to verify a change to the scanner config is to wait a week.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security-audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python (3.14)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Export locked runtime dependencies
+        run: >-
+          uv export
+          --frozen
+          --no-dev
+          --no-emit-project
+          --no-hashes
+          --format requirements-txt
+          --output-file /tmp/requirements-audit.txt
+
+      - name: Audit dependencies for known CVEs
+        run: pip-audit -r /tmp/requirements-audit.txt
+
+  dependency-audit-dev:
+    # Detection-only counterpart to `Security audit`, covering what the runtime
+    # gate cannot see: the dev dependency groups and the npm tree. Deliberately
+    # NOT a required check — see the header.
+    name: Dependency audit (dev + npm)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python (3.14)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      # npm is needed for the `npm audit` step. No `npm ci`: the env audits
+      # with --package-lock-only, straight from the lockfile.
+      - name: Set up Node (20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tox
+        run: pip install tox tox-uv
+
+      - name: Audit the dev groups and the npm tree
+        run: tox -e audit-dev
+
+  sast:
+    name: SAST (semgrep)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python (3.14)
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install tox
+        run: pip install tox tox-uv
+
+      - name: Run semgrep via tox
+        run: tox -e sast
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    # gitleaks-action reads the PR commit range via the REST API on
+    # pull_request events, so it needs pull-requests:read on top of the
+    # checkout's contents:read.
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+        with:
+          # Full history so the scan covers every commit in the range, not
+          # just the tip. Mirrors the pre-commit gitleaks hook.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pin to the same version the pre-commit hook runs (see
+          # .pre-commit-config.yaml). Left unpinned, the action installs its
+          # own default, which drifts — and then a commit can pass the hook and
+          # fail CI, or the reverse. Both sides must parse the config
+          # identically.
+          GITLEAKS_VERSION: "8.30.0"
+          # PR review comments would need pull-requests:write, defeating the
+          # least-privilege scoping. The gate is the non-zero exit, not the
+          # comment.
+          GITLEAKS_ENABLE_COMMENTS: "false"
