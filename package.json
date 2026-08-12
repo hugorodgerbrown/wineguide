@@ -12,6 +12,6 @@
     "fake-indexeddb": "^6.2.5",
     "htmx.org": "^2.0.4",
     "jsdom": "^25.0.1",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.10"
   }
 }
