@@ -1,0 +1,76 @@
+{% comment %}
+apps/journal/templates/journal/_results.html — The journal list itself.
+
+Rendered inside list.html on a full page load, and returned on its own to an
+HTMX filter request. Nothing in here depends on the page around it.
+{% endcomment %}
+{% load i18n %}
+{% if filters.ignored %}
+    <p
+        class="mb-4 rounded-card border border-rule bg-paper-raised p-3 font-sans text-caption text-ink-muted"
+        role="status"
+    >
+        {% blocktranslate with fields=filters.ignored|join:", " %}Ignored a filter we could not read:
+            {{ fields }}.{% endblocktranslate %}
+    </p>
+{% endif %}
+{% if page.object_list %}
+    <ul class="flex flex-col gap-3">
+        {% for session in page.object_list %}
+            <li>
+                <a
+                    class="flex items-center gap-4 rounded-card border border-rule bg-paper-raised p-4 no-underline"
+                    href="{{ session.get_absolute_url }}"
+                >
+                    {# The swatch is decoration beside the style, never the only signal (PRD §8). #}
+                    <span
+                        class="h-10 w-10 shrink-0 rounded-full border border-rule"
+                        style="background: {{ session.colour_hex|default:'transparent' }}"
+                        aria-hidden="true"
+                    ></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-ink">{{ session.display_name }}</span>
+                        <span class="block font-sans text-meta tracking-widest text-ink-muted uppercase">
+                            {{ session.get_wine_type_display }}
+                            {% if session.quality %}· {{ session.quality }}{% endif %}
+                            {% if not session.is_complete %}· {% translate "Unfinished" %}{% endif %}
+                        </span>
+                    </span>
+                    <time
+                        class="shrink-0 font-sans text-caption text-ink-muted"
+                        datetime="{{ session.started_at|date:'c' }}"
+                    >{{ session.started_at|date:"j M Y" }}</time>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+    {% if page.has_other_pages %}
+        <nav
+            class="mt-6 flex items-center justify-between font-sans text-caption"
+            aria-label="{% translate 'Pagination' %}"
+        >
+            {% if page.has_previous %}
+                <a href="?page={{ page.previous_page_number }}">{% translate "Newer" %}</a>
+            {% else %}
+                <span></span>
+            {% endif %}
+            <span class="text-ink-muted">
+                {% blocktranslate with number=page.number total=page.paginator.num_pages %}Page {{ number }} of
+                    {{ total }}{% endblocktranslate %}
+            </span>
+            {% if page.has_next %}
+                <a href="?page={{ page.next_page_number }}">{% translate "Older" %}</a>
+            {% else %}
+                <span></span>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% else %}
+    <p class="rounded-card border border-rule bg-paper-raised p-6 text-center text-ink-muted">
+        {% if filters.any_applied %}
+            {% translate "Nothing matches those filters." %}
+        {% else %}
+            {% translate "No tastings yet. The first one is the hard one." %}
+        {% endif %}
+    </p>
+{% endif %}

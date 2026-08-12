@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% comment %}
+apps/journal/templates/journal/list.html — The tasting journal.
+
+The filter form is a real GET form pointed at this view, so it works with
+scripting off. The HTMX attributes only change how the answer is delivered:
+`hx-get` re-runs the same view, which returns _results.html instead of the
+whole page.
+{% endcomment %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("Journal") description=_("Every wine you have tasted, and what you made of it.") %}
+{% endblock page_meta %}
+{% block content %}
+    <div class="mb-6 flex items-baseline justify-between gap-4">
+        <h1 class="text-display font-medium">{% translate "Journal" %}</h1>
+        <a
+            class="rounded-card bg-accent px-4 py-2 font-sans text-caption text-accent-contrast no-underline"
+            href="{% url 'tastings:start' %}"
+        >{% translate "New tasting" %}</a>
+    </div>
+    <form
+        class="mb-6 flex flex-col gap-3"
+        method="get"
+        action="{% url 'journal:list' %}"
+        hx-get="{% url 'journal:list' %}"
+        hx-target="#journal-results"
+        hx-swap="innerHTML"
+        hx-trigger="submit, input from:#q delay:300ms, change from:select, change from:input[type=date]"
+        hx-push-url="true"
+    >
+        <label class="sr-only" for="q">{% translate "Search" %}</label>
+        <input
+            class="rounded-card border border-rule bg-paper-raised px-4 py-3 font-sans"
+            id="q"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="{% translate 'Wine, producer, region or grape' %}"
+        >
+        <div class="flex flex-wrap gap-3">
+            <label class="sr-only" for="wine_type">{% translate "Style" %}</label>
+            <select
+                class="rounded-card border border-rule bg-paper-raised px-3 py-2 font-sans text-caption"
+                id="wine_type"
+                name="wine_type"
+            >
+                <option value="">{% translate "Any style" %}</option>
+                {% for value, label in wine_types %}
+                    <option value="{{ value }}" {% if filters.wine_type == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+            <label class="sr-only" for="quality">{% translate "Quality" %}</label>
+            <select
+                class="rounded-card border border-rule bg-paper-raised px-3 py-2 font-sans text-caption"
+                id="quality"
+                name="quality"
+            >
+                <option value="">{% translate "Any quality" %}</option>
+                {% for value, label in qualities %}
+                    <option value="{{ value }}" {% if filters.quality == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                {% endfor %}
+            </select>
+            <label class="sr-only" for="date_from">{% translate "From" %}</label>
+            <input
+                class="rounded-card border border-rule bg-paper-raised px-3 py-2 font-sans text-caption"
+                id="date_from"
+                name="date_from"
+                type="date"
+                value="{{ filters.date_from|date:'Y-m-d' }}"
+            >
+            <label class="sr-only" for="date_to">{% translate "To" %}</label>
+            <input
+                class="rounded-card border border-rule bg-paper-raised px-3 py-2 font-sans text-caption"
+                id="date_to"
+                name="date_to"
+                type="date"
+                value="{{ filters.date_to|date:'Y-m-d' }}"
+            >
+            <noscript>
+                <button
+                    class="rounded-card bg-accent px-4 py-2 font-sans text-caption text-accent-contrast"
+                    type="submit"
+                >
+                    {% translate "Search" %}
+                </button>
+            </noscript>
+        </div>
+    </form>
+    <div id="journal-results">
+        {% include "journal/_results.html" %}
+    </div>
+{% endblock content %}

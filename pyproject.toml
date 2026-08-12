@@ -83,9 +83,8 @@ disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 # Settings modules are built from `from .base import *`, which mypy cannot
-# follow well enough to be useful here. Add "*.migrations.*" alongside this
-# when the first model lands.
-module = ["*.settings.*"]
+# follow well enough to be useful here. Migrations are generated code.
+module = ["*.settings.*", "*.migrations.*"]
 ignore_errors = true
 
 [tool.django-stubs]
@@ -95,10 +94,10 @@ django_settings_module = "config.settings.development"
 DJANGO_SETTINGS_MODULE = "config.settings.development"
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-n auto --cov=apps.public --cov=config --ignore=tests/e2e"
+addopts = "-n auto --cov=apps --cov=config --ignore=tests/e2e"
 
 [tool.coverage.run]
-source = ["apps.public", "config"]
+source = ["apps", "config"]
 omit = [
     "*/migrations/*",
     "__init__.py",
@@ -142,6 +141,10 @@ ignore = [
     "D403", # First word of the first line should be capitalized
     "D404", # First word of the docstring should not be "This"
     "D417", # Missing argument description in the docstring
+    # Django's inner Meta is a framework convention with a fixed meaning, not
+    # a class anyone reads a docstring for. Requiring one on every model
+    # produces 30 identical "Meta options." lines and no information.
+    "D106", # Missing docstring in public nested class
 ]
 
 [tool.ruff.lint.isort]

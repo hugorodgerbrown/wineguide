@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("Check your email") description=_("A sign-in link is on its way.") %}
+{% endblock page_meta %}
+{% block content %}
+    <h1 class="mb-4 text-display font-medium">{% translate "Check your email" %}</h1>
+    <p class="mb-4 text-ink-muted">
+        {% blocktranslate %}If there is an account for {{ email }}, a sign-in link is on its way. It expires in fifteen
+            minutes.{% endblocktranslate %}
+    </p>
+    <p class="font-sans text-caption text-ink-muted">
+        {% blocktranslate %}Nothing arrived? Check the spam folder, then try again in a minute.{% endblocktranslate %}
+    </p>
+{% endblock content %}

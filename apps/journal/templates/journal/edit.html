@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% comment %}
+Only the wine's identity is editable — the label you checked afterwards, the
+reveal after a blind tasting. The observations are not: the value of the
+journal is what you thought at the time.
+{% endcomment %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("Edit") description=_("Fill in the wine details.") %}
+{% endblock page_meta %}
+{% block content %}
+    <h1 class="mb-2 text-display font-medium">{% translate "The wine" %}</h1>
+    <p class="mb-6 text-ink-muted">
+        {% blocktranslate %}Fill in what you know now. Your observations stay as you recorded
+            them.{% endblocktranslate %}
+    </p>
+    <form class="flex flex-col gap-4" method="post" action="{% url 'journal:edit' uuid=session.uuid %}">
+        {% csrf_token %}
+        {% for name, label, kind, value in fields %}
+            <div class="flex flex-col gap-1">
+                <label
+                    class="font-sans text-meta tracking-widest text-ink-muted uppercase"
+                    for="{{ name }}"
+                >{{ label }}</label>
+                <input
+                    class="rounded-card border border-rule bg-paper-raised px-4 py-3 font-sans"
+                    id="{{ name }}"
+                    name="{{ name }}"
+                    type="{{ kind }}"
+                    value="{{ value|default:'' }}"
+                >
+            </div>
+        {% endfor %}
+        <div class="flex items-center gap-4">
+            <button class="rounded-card bg-accent px-6 py-3 font-sans text-caption text-accent-contrast" type="submit">
+                {% translate "Save" %}
+            </button>
+            <a class="font-sans text-caption" href="{{ session.get_absolute_url }}">{% translate "Cancel" %}</a>
+        </div>
+    </form>
+{% endblock content %}

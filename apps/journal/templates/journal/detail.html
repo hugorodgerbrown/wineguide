@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=session.display_name description=_("A tasting note.") %}
+{% endblock page_meta %}
+{% block content %}
+    <p class="mb-2 font-sans text-meta tracking-widest text-ink-muted uppercase">
+        {{ session.get_wine_type_display }} · {{ session.started_at|date:"j F Y" }}
+        {% if session.tasted_blind %}· {% translate "Tasted blind" %}{% endif %}
+    </p>
+    <h1 class="mb-6 text-display font-medium">{{ session.display_name }}</h1>
+    {% if not session.is_complete %}
+        <p
+            class="mb-6 rounded-card border border-rule bg-paper-raised p-3 font-sans text-caption text-ink-muted"
+            role="status"
+        >
+            {% translate "This session was never finished." %}
+        </p>
+    {% endif %}
+    {% if session.guessed_grape or session.actual_grape %}
+        <section class="mb-6 rounded-card border border-rule bg-paper-raised p-4">
+            <h2 class="mb-3 font-sans text-meta tracking-widest text-ink-muted uppercase">
+                {% translate "Guess and reveal" %}
+            </h2>
+            <dl class="flex flex-wrap gap-8 font-sans">
+                <div>
+                    <dt class="text-meta tracking-widest text-ink-muted uppercase">{% translate "You said" %}</dt>
+                    <dd class="mt-1 text-fact">{{ session.guessed_grape|default:"—" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-meta tracking-widest text-ink-muted uppercase">{% translate "It was" %}</dt>
+                    <dd class="mt-1 text-fact">{{ session.actual_grape|default:"—" }}</dd>
+                </div>
+                {% if session.actual_origin %}
+                    <div>
+                        <dt class="text-meta tracking-widest text-ink-muted uppercase">{% translate "From" %}</dt>
+                        <dd class="mt-1 text-fact">{{ session.actual_origin }}</dd>
+                    </div>
+                {% endif %}
+            </dl>
+        </section>
+    {% endif %}
+    {% for phase in phases %}
+        <section class="mb-6">
+            <h2 class="mb-3 font-sans text-meta tracking-widest text-accent uppercase">{{ phase.label }}</h2>
+            <dl class="flex flex-col gap-3">
+                {% for row in phase.rows %}
+                    <div class="border-b border-rule pb-3">
+                        <dt class="font-sans text-caption text-ink-muted">{{ row.prompt }}</dt>
+                        <dd class="mt-1">
+                            {% if row.skipped %}
+                                <span class="text-ink-muted italic">{% translate "Skipped" %}</span>
+                            {% else %}
+                                {{ row.values|join:", " }}
+                            {% endif %}
+                        </dd>
+                    </div>
+                {% endfor %}
+            </dl>
+        </section>
+    {% empty %}
+        <p class="text-ink-muted">{% translate "Nothing was recorded in this session." %}</p>
+    {% endfor %}
+    <div class="mt-8 flex flex-wrap items-center gap-4">
+        <a
+            class="rounded-card bg-accent px-6 py-2 font-sans text-caption text-accent-contrast no-underline"
+            href="{% url 'journal:edit' uuid=session.uuid %}"
+        >{% translate "Edit the wine details" %}</a>
+        <a class="font-sans text-caption" href="{% url 'journal:list' %}">{% translate "Back to the journal" %}</a>
+        <form
+            class="ms-auto"
+            method="post"
+            action="{% url 'journal:delete' uuid=session.uuid %}"
+            onsubmit="return confirm('{% translate "Delete this tasting note? This cannot be undone." %}')"
+        >
+            {% csrf_token %}
+            <button class="font-sans text-caption text-ink-muted underline" type="submit">
+                {% translate "Delete" %}
+            </button>
+        </form>
+    </div>
+{% endblock content %}

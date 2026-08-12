@@ -25,6 +25,12 @@ CSRF_TRUSTED_ORIGINS = config(
 
 INTERNAL_IPS = ["127.0.0.1"]
 
+# Sign-in links are printed to the console rather than sent. Reading the link
+# out of the runserver log is the whole local sign-in flow.
+MAILERS = {
+    "default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"},
+}
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",

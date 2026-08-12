@@ -59,6 +59,20 @@ JavaScript has not run.
                 class="font-sans font-semibold tracking-wide text-ink no-underline"
                 href="{% url 'public:home' %}"
             >{{ SITE_NAME }}</a>
+            {% if user.is_authenticated %}
+                <nav class="ms-auto flex items-center gap-4 font-sans text-caption" aria-label="{% translate 'Main' %}">
+                    <a href="{% url 'tastings:start' %}">{% translate "Taste" %}</a>
+                    <a href="{% url 'journal:list' %}">{% translate "Journal" %}</a>
+                    {# POST, so no image tag on any page can sign someone out #}
+                    {# mid-tasting (PRD §7, interruption safety). #}
+                    <form method="post" action="{% url 'accounts:sign_out' %}">
+                        {% csrf_token %}
+                        <button class="cursor-pointer text-ink-muted underline" type="submit">
+                            {% translate "Sign out" %}
+                        </button>
+                    </form>
+                </nav>
+            {% endif %}
             <button
                 id="theme-toggle"
                 class="cursor-pointer rounded-full border border-rule px-4 py-1 font-sans text-caption text-ink-muted hover:border-ink-muted hover:text-ink"
@@ -79,6 +93,7 @@ JavaScript has not run.
         </footer>
         <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>
         <script src="{% static 'js/theme.js' %}?v={{ RELEASE_VERSION }}" type="module"></script>
+        <script src="{% static 'js/sw_register.js' %}?v={{ RELEASE_VERSION }}" type="module"></script>
         {% block extra_js %}{% endblock extra_js %}
     </body>
 </html>

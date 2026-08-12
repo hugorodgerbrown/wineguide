@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("Sign in") description=_("Sign in to your tasting journal.") %}
+{% endblock page_meta %}
+{% block content %}
+    <h1 class="mb-4 text-display font-medium">{% translate "Sign in" %}</h1>
+    <p class="mb-6 text-ink-muted">
+        {% blocktranslate %}No password. Give us an email address and we will send you a link.{% endblocktranslate %}
+    </p>
+    {% if error %}
+        <p class="mb-4 rounded-card border border-rule bg-paper-raised p-3 font-sans text-caption" role="alert">
+            {{ error }}
+        </p>
+    {% endif %}
+    <form method="post" action="{% url 'accounts:sign_in' %}" class="flex flex-col gap-4">
+        {% csrf_token %}
+        <label
+            class="font-sans text-meta tracking-widest text-ink-muted uppercase"
+            for="email"
+        >{% translate "Email" %}</label>
+        <input
+            class="rounded-card border border-rule bg-paper-raised px-4 py-3 font-sans"
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            inputmode="email"
+            required
+            value="{{ email|default:'' }}"
+        >
+        <button class="rounded-card bg-accent px-6 py-3 font-sans text-caption text-accent-contrast" type="submit">
+            {% translate "Send me a link" %}
+        </button>
+    </form>
+{% endblock content %}

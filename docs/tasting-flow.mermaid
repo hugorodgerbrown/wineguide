@@ -1,0 +1,44 @@
+flowchart TD
+    Start(["Pour the wine"]) --> Look
+
+    subgraph Look["👁 LOOK — Appearance (~30–60 sec)"]
+        L1["Clarity: clear or hazy"]
+        L2["Intensity: pale / medium / deep"]
+        L3["Colour: hue specific to wine type"]
+        L1 --> L2 --> L3
+    end
+
+    Look --> Smell
+
+    subgraph Smell["👃 SMELL — Nose (~1–2 min)"]
+        S1["Condition: clean or faulty"]
+        S2["Intensity: light / medium / pronounced"]
+        S3["Aroma characteristics"]
+        S3a["Primary — fruit, floral, herbal"]
+        S3b["Secondary — yeast, oak, malolactic"]
+        S3c["Tertiary — bottle age, oxidation"]
+        S1 --> S2 --> S3
+        S3 --> S3a
+        S3 --> S3b
+        S3 --> S3c
+    end
+
+    Smell --> Taste
+
+    subgraph Taste["👅 TASTE — Palate (~2–3 min)"]
+        T1["Structure: sweetness · acidity · tannin · alcohol · body"]
+        T2["Flavour intensity & characteristics"]
+        T3["Finish: short / medium / long"]
+        T1 --> T2 --> T3
+    end
+
+    Taste --> Conclude
+
+    subgraph Conclude["🧠 CONCLUDE (~1–2 min)"]
+        C1["Quality assessment"]
+        C2["Readiness / ageing potential"]
+        C3["Guess: grape · origin · winemaking"]
+        C1 --> C2 --> C3
+    end
+
+    Conclude --> Save(["Saved to Tasting Journal"])

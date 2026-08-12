@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("That link has expired") description=_("Sign-in links expire after fifteen minutes and work once.") %}
+{% endblock page_meta %}
+{% block content %}
+    <h1 class="mb-4 text-display font-medium">{% translate "That link no longer works" %}</h1>
+    <p class="mb-6 text-ink-muted">
+        {% blocktranslate %}Sign-in links expire after fifteen minutes, and each one works once. Ask for a fresh
+            one.{% endblocktranslate %}
+    </p>
+    <a
+        class="inline-block rounded-card bg-accent px-6 py-3 font-sans text-caption text-accent-contrast no-underline"
+        href="{% url 'accounts:sign_in' %}"
+    >{% translate "Send me a new link" %}</a>
+{% endblock content %}

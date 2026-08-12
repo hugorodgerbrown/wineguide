@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% comment %}
+templates/offline.html — Shown when a navigation fails with nothing cached.
+
+Precached by the service worker at install, so it is available exactly when
+nothing else is. Its job is to say the one thing that matters: the tasting in
+progress is safe.
+{% endcomment %}
+{% load i18n %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("Offline") description=_("No connection right now.") %}
+{% endblock page_meta %}
+{% block content %}
+    <h1 class="mb-4 text-display font-medium">{% translate "No connection" %}</h1>
+    <p class="mb-4 text-ink-muted">
+        {% blocktranslate %}This page needs the network, and there isn't one right now.{% endblocktranslate %}
+    </p>
+    <p class="mb-6 text-ink-muted">
+        {% blocktranslate %}Anything you have already tasted is saved on this device and will sync by itself once you
+            are back.{% endblocktranslate %}
+    </p>
+    <a
+        class="inline-block rounded-card bg-accent px-6 py-3 font-sans text-caption text-accent-contrast no-underline"
+        href="{% url 'tastings:start' %}"
+    >{% translate "Back to the tasting" %}</a>
+{% endblock content %}

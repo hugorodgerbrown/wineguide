@@ -41,6 +41,21 @@ STORAGES = {
 ALLOWED_HOSTS = config("ALLOWED_HOSTS").split(",")
 
 # ---------------------------------------------------------------------------
+# Cache — shared across workers
+# ---------------------------------------------------------------------------
+# base.py's LocMemCache is per-process, which would give the sign-in throttle
+# one bucket per worker and multiply the rate limit by the worker count.
+# DatabaseCache needs no extra service; move to Redis when there is traffic to
+# justify one. Requires `manage.py createcachetable`.
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    },
+}
+
+# ---------------------------------------------------------------------------
 # Database — expects DATABASE_URL, e.g. postgresql://user:pw@host:5432/db
 # ---------------------------------------------------------------------------
 

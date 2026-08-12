@@ -49,6 +49,11 @@ INSTALLED_APPS = [
     # Third-party
     "django_htmx",
     # Local
+    "apps.core",
+    "apps.accounts",
+    "apps.lexicon",
+    "apps.tastings",
+    "apps.journal",
     "apps.public",
 ]
 
@@ -93,6 +98,39 @@ WSGI_APPLICATION = "config.wsgi.application"
 # ---------------------------------------------------------------------------
 
 SITE_NAME = config("SITE_NAME", default="Wineguide")
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+# Passwordless: a signed link by email, no password field anywhere (PRD §6.4).
+# django.contrib.auth's default User is the model; the email address is both
+# the username and the only thing we store about a person.
+
+LOGIN_URL = "accounts:sign_in"
+LOGIN_REDIRECT_URL = "tastings:start"
+LOGOUT_REDIRECT_URL = "accounts:sign_in"
+
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="hello@wineguide.example")
+
+# MAILERS, not EMAIL_BACKEND: Django 6 deprecated the old setting and removes
+# it in 7.0. Development overrides this with the console backend.
+MAILERS = {
+    "default": {"BACKEND": "django.core.mail.backends.smtp.EmailBackend"},
+}
+
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
+# Only user right now is the sign-in throttle, which needs to be shared across
+# workers to mean anything. LocMemCache is per-process and therefore per-worker
+# — fine for development and tests, wrong in production, where production.py
+# overrides it.
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Password validation

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% comment %}
+apps/tastings/templates/tastings/session.html — The session shell.
+
+The server renders this once and then stays out of the way; everything from
+picking a style to the closing summary is drawn by static/js/session/. See the
+docstring in apps/tastings/views.py for why this one page is not
+progressively enhanced HTML like the rest of the site.
+
+The <noscript> is not a fallback — a guided, timed, offline-capable sequence
+cannot be delivered without JavaScript. It says so plainly and points at the
+journal, which works either way.
+{% endcomment %}
+{% load i18n static %}
+{% block page_meta %}
+    {% include "includes/_page_meta.html" with title=_("Tasting") description=_("A guided run through the four phases.") %}
+{% endblock page_meta %}
+{% block content %}
+    {{ bootstrap|json_script:"session-bootstrap" }}
+    <noscript>
+        <p class="rounded-card border border-rule bg-paper-raised p-6 text-ink-muted">
+            {% blocktranslate %}A guided tasting needs JavaScript — it runs entirely in the browser so it keeps
+                working when the wifi does not. Your journal does not, and is over here.{% endblocktranslate %}
+            <a href="{% url 'journal:list' %}">{% translate "Open the journal" %}</a>
+        </p>
+    </noscript>
+    {# flex-1 rather than a viewport fraction: <main> is already the flexing #}
+    {# child of a full-height column, so this fills whatever is left and the #}
+    {# action row lands at the bottom, in thumb reach (PRD §7). #}
+    <div id="session-app" class="flex flex-1 flex-col"></div>
+{% endblock content %}
+{% block extra_js %}
+    <script type="module" src="{% static 'js/session/session.js' %}?v={{ RELEASE_VERSION }}"></script>
+{% endblock extra_js %}
