@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # tox is a Python tool that drives `npm ci && npm run test:js`, so both
       # runtimes are needed — Python for tox itself, Node for Vitest.
