@@ -6,17 +6,20 @@ per-screen strings, so terminology can be corrected or extended without a code
 change. That is what this app is: the client renders whatever the server sends
 and knows nothing about wine.
 
-Three models:
+Four models:
 
-    Lexicon   one published vocabulary set, e.g. "2026.1". Exactly one is
-              active; a session records which one it was taken against, so a
-              later correction never rewrites history.
-    Question  one prompt, in one phase, with a control type and the wine
-              types it applies to.
-    Option    one answer chip. Options nest one level — a broad category
-              (citrus fruit) holding specific descriptors (grapefruit, lemon,
-              lime) — because that is how the method teaches a taster to
-              narrow in (PRD §6.3).
+    Lexicon    one published vocabulary set, e.g. "2026.1". Exactly one is
+               active; a session records which one it was taken against, so a
+               later correction never rewrites history.
+    Question   one prompt, in one phase, with a control type and the wine
+               types it applies to. Carries both halves of the teaching:
+               `how_to_tell` (the physical instruction) and `why_it_matters`.
+    Option     one answer chip, with `guidance` saying how to know it is this
+               one and not the one beside it. Options nest one level — a broad
+               category holding specific descriptors — because that is how the
+               method teaches a taster to narrow in (PRD §6.3).
+    Inference  what the app concludes from the descriptors chosen. The taster
+               records brioche; the app says lees ageing.
 
 On terminology: the four-phase sequence and the primary/secondary/tertiary
 framework are the industry-standard teaching method and free to build on. The
@@ -31,7 +34,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import Control, Phase, WineType, phase_index
+from apps.core.enums import AromaOrigin, Control, Phase, WineType, phase_index
 
 
 class LexiconQuerySet(models.QuerySet["Lexicon"]):
@@ -147,10 +150,25 @@ class Question(models.Model):
         max_length=120,
         help_text=_("Readable in under three seconds, at the table."),
     )
-    help_text = models.TextField(
-        _("help text"),
+    short_label = models.CharField(
+        _("short label"),
+        max_length=32,
         blank=True,
-        help_text=_("The optional 'why this matters' note. A hint, not a lesson."),
+        help_text=_("One or two words for the navigation rail, e.g. Acidity."),
+    )
+    how_to_tell = models.TextField(
+        _("how to tell"),
+        blank=True,
+        help_text=_(
+            "The physical instruction: what to do with the glass or your mouth, "
+            "and what sensation to look for. Shown on the question itself, not "
+            "hidden behind a toggle — this is the part that teaches."
+        ),
+    )
+    why_it_matters = models.TextField(
+        _("why it matters"),
+        blank=True,
+        help_text=_("What the answer tells you about the wine. Available on tap."),
     )
     control = models.CharField(
         _("control"), max_length=16, choices=Control.choices, default=Control.SINGLE
@@ -200,6 +218,16 @@ class Question(models.Model):
         """Return whether this question is asked for ``wine_type``."""
         return applies_to(self.wine_types, wine_type)
 
+    @property
+    def nav_label(self) -> str:
+        """Return the short label, falling back to the prompt.
+
+        The navigation rail needs one or two words; a prompt is a sentence.
+        Falling back rather than requiring the field means a question added
+        without one still appears in the rail, just wider than it should be.
+        """
+        return self.short_label or self.prompt
+
 
 class Option(models.Model):
     """One selectable answer.
@@ -226,6 +254,35 @@ class Option(models.Model):
     )
     code = models.SlugField(_("code"), max_length=64)
     label = models.CharField(_("label"), max_length=80)
+    guidance = models.CharField(
+        _("guidance"),
+        max_length=160,
+        blank=True,
+        help_text=_(
+            "How to know it is this one and not the one next to it. The "
+            "difference between medium and high acidity is the whole "
+            "difficulty; the label alone does not teach it."
+        ),
+    )
+    origin = models.CharField(
+        _("origin"),
+        max_length=16,
+        choices=AromaOrigin.choices,
+        blank=True,
+        help_text=_(
+            "For aroma and flavour descriptors: where this came from. The app "
+            "sorts by it so the taster does not have to."
+        ),
+    )
+    implies = models.SlugField(
+        _("implies"),
+        max_length=64,
+        blank=True,
+        help_text=_(
+            "Code of an Inference this descriptor is evidence for, e.g. "
+            "malolactic. Empty when it implies nothing in particular."
+        ),
+    )
     swatch = models.CharField(
         _("swatch"),
         max_length=7,
@@ -281,3 +338,59 @@ class Option(models.Model):
     def applies_to(self, wine_type: str) -> bool:
         """Return whether this option is offered for ``wine_type``."""
         return applies_to(self.wine_types, wine_type)
+
+
+class Inference(models.Model):
+    """Something the app concludes from what the taster recorded.
+
+    This is the half of the method the app owes the taster rather than
+    demanding from them. Nobody should be asked "did this go through
+    malolactic conversion?" — that is the answer, not the question. They
+    record butter and cream because that is what they can smell, and the app
+    says what butter and cream mean.
+
+    An inference fires when any descriptor tagged with its code was selected.
+    Deliberately not a threshold or a weighting: "you found butter, which
+    usually means malolactic conversion" is a true and useful sentence on one
+    descriptor, and a confidence score would imply a precision this does not
+    have.
+    """
+
+    lexicon = models.ForeignKey(
+        Lexicon,
+        on_delete=models.CASCADE,
+        related_name="inferences",
+        verbose_name=_("lexicon"),
+    )
+    code = models.SlugField(
+        _("code"),
+        max_length=64,
+        help_text=_("Matches Option.implies, e.g. malolactic."),
+    )
+    label = models.CharField(
+        _("label"),
+        max_length=80,
+        help_text=_("The name of the thing, e.g. Malolactic conversion."),
+    )
+    explanation = models.TextField(
+        _("explanation"),
+        help_text=_(
+            "What it is and why those descriptors point at it, in plain words. "
+            "Two sentences at most — this is read at a table, not a desk."
+        ),
+    )
+    order = models.PositiveSmallIntegerField(_("order"), default=0)
+
+    class Meta:
+        verbose_name = _("inference")
+        verbose_name_plural = _("inferences")
+        ordering = ("order", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lexicon", "code"], name="inference_code_unique_per_lexicon"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        """Return the label."""
+        return self.label

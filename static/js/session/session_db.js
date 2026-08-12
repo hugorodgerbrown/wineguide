@@ -41,14 +41,61 @@ function promisify(request) {
 }
 
 /**
+ * How long to wait for the database before giving up on it.
+ *
+ * IndexedDB can leave an open request pending with no event at all — not
+ * success, not error, not even `blocked`. A second tab part-way through a
+ * version upgrade will do it, so will a `deleteDatabase` that never completed,
+ * and so will a browser under storage pressure. Without a bound, the session
+ * page waits on that promise forever and the taster sees an empty screen with
+ * nothing to explain it.
+ *
+ * Generous, because a cold open on a slow phone is not instant, and the cost
+ * of being wrong is only that the session runs without local persistence.
+ */
+export const OPEN_TIMEOUT_MS = 3000;
+
+/**
  * Open (and if necessary create) the database.
  *
+ * Rejects rather than hanging — see `OPEN_TIMEOUT_MS`. The caller is expected
+ * to carry on without persistence rather than refusing to start: a tasting
+ * that syncs but would not survive a reload is worth far more than no tasting
+ * at all.
+ *
  * @param {IDBFactory} [factory] - Defaults to the global indexedDB.
+ * @param {number} [timeoutMs]
  * @returns {Promise<IDBDatabase>}
  */
-export function openDb(factory = globalThis.indexedDB) {
+export function openDb(factory = globalThis.indexedDB, timeoutMs = OPEN_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    const request = factory.open(DB_NAME, DB_VERSION);
+    if (!factory) {
+      reject(new Error('IndexedDB unavailable'));
+      return;
+    }
+
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+
+    const timer = setTimeout(
+      () => finish(reject, new Error('IndexedDB did not respond')),
+      timeoutMs,
+    );
+
+    let request;
+    try {
+      request = factory.open(DB_NAME, DB_VERSION);
+    } catch (e) {
+      // Firefox in permanent-private mode throws synchronously here.
+      finish(reject, e);
+      return;
+    }
+
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(SESSIONS)) {
@@ -61,8 +108,12 @@ export function openDb(factory = globalThis.indexedDB) {
         db.createObjectStore(LEXICONS, { keyPath: 'wineType' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    // Another tab is holding the old version open. It may close in a moment,
+    // but the taster should not be made to wait and guess.
+    request.onblocked = () =>
+      finish(reject, new Error('IndexedDB blocked by another tab'));
+    request.onsuccess = () => finish(resolve, request.result);
+    request.onerror = () => finish(reject, request.error);
   });
 }
 

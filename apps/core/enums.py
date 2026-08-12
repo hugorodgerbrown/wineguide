@@ -74,6 +74,24 @@ class Control(models.TextChoices):
     SCALE = "scale", _("Scale, low to high")
 
 
+class AromaOrigin(models.TextChoices):
+    """Where a smell or flavour came from.
+
+    This is the framework the app exists to teach, and the taster is not
+    expected to know it — that is the point. They record that they smell
+    brioche; the app is what says brioche is secondary and means time on the
+    lees. Asking someone to file their own descriptors under
+    primary/secondary/tertiary is asking them to have already learned the
+    thing they came to learn.
+
+    Carried on the option, so the sorting is data rather than logic.
+    """
+
+    PRIMARY = "primary", _("From the grape")
+    SECONDARY = "secondary", _("From the winemaking")
+    TERTIARY = "tertiary", _("From age")
+
+
 class SessionStatus(models.TextChoices):
     """Lifecycle of a tasting session.
 

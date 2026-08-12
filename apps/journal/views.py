@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.core.enums import PHASE_ORDER, Phase, WineType
+from apps.lexicon.inference import interpret, selected_codes
 from apps.lexicon.models import Option, Question
 from apps.tastings.models import TastingSession
 
@@ -90,10 +91,18 @@ def detail(request: HttpRequest, uuid: str) -> HttpResponse:
     session: TastingSession = get_object_or_404(
         visible_sessions(request.user), uuid=uuid
     )
+    # Interpreted against the lexicon the session was taken under, so a later
+    # change to what a descriptor implies cannot rewrite an old note.
+    groups, conclusions = interpret(session.lexicon, selected_codes(session.answers()))
     return render(
         request,
         "journal/detail.html",
-        {"session": session, "phases": _rendered_phases(session)},
+        {
+            "session": session,
+            "phases": _rendered_phases(session),
+            "origin_groups": groups,
+            "conclusions": conclusions,
+        },
     )
 
 

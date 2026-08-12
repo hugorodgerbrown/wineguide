@@ -54,6 +54,9 @@ def make_question(
     wine_types: list[str] | None = None,
     order: int = 0,
     prompt: str = "",
+    short_label: str = "",
+    how_to_tell: str = "",
+    why_it_matters: str = "",
 ) -> Question:
     """Create a question on ``lexicon``."""
     return Question.objects.create(
@@ -62,6 +65,9 @@ def make_question(
         phase=phase,
         control=control,
         prompt=prompt or f"Prompt for {code}",
+        short_label=short_label,
+        how_to_tell=how_to_tell,
+        why_it_matters=why_it_matters,
         wine_types=wine_types or [],
         order=order,
     )
@@ -73,6 +79,9 @@ def make_option(
     *,
     label: str = "",
     parent: Option | None = None,
+    guidance: str = "",
+    origin: str = "",
+    implies: str = "",
     swatch: str = "",
     wine_types: list[str] | None = None,
     order: int = 0,
@@ -83,6 +92,9 @@ def make_option(
         parent=parent,
         code=code,
         label=label or code.replace("_", " ").title(),
+        guidance=guidance,
+        origin=origin,
+        implies=implies,
         swatch=swatch,
         wine_types=wine_types or [],
         order=order,

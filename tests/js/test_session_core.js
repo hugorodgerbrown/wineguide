@@ -10,18 +10,22 @@ import { describe, expect, it } from 'vitest';
 
 import {
   STATUS,
+  allAnswered,
   answer,
   buildSteps,
   complete,
   createSession,
   currentStep,
+  goTo,
   isFinished,
   isOverBudget,
   next,
   pause,
   phaseElapsedMs,
+  phaseStates,
   previous,
   progress,
+  questionStates,
   resume,
   reveal,
   skip,
@@ -43,7 +47,9 @@ const PAYLOAD = {
         {
           code: 'clarity',
           prompt: 'Clear or hazy?',
-          help: '',
+          short: 'Clarity',
+          how: 'Hold it against something white.',
+          why: 'Haze can mean a fault.',
           control: 'single',
           options: [
             { code: 'clear', label: 'Clear', swatch: '', children: [] },
@@ -53,7 +59,9 @@ const PAYLOAD = {
         {
           code: 'colour',
           prompt: 'What colour?',
-          help: '',
+          short: 'Colour',
+          how: 'Tilt the glass.',
+          why: '',
           control: 'single',
           options: [{ code: 'ruby', label: 'Ruby', swatch: '#8e1220', children: [] }],
         },
@@ -66,8 +74,10 @@ const PAYLOAD = {
       questions: [
         {
           code: 'primary_aromas',
-          prompt: 'What came from the grape?',
-          help: 'Fruit, flowers, herbs.',
+          prompt: 'What can you smell?',
+          short: 'Aromas',
+          how: 'Short sharp sniffs.',
+          why: 'Raw material for the end.',
           control: 'multi',
           options: [
             {
@@ -415,5 +425,168 @@ describe('toPayload', () => {
   it('is JSON-serialisable', () => {
     const body = toPayload(STEPS, answer(STEPS, fresh(), 'clear', at(5)));
     expect(JSON.parse(JSON.stringify(body))).toEqual(body);
+  });
+});
+
+describe('goTo', () => {
+  it('jumps straight to a question', () => {
+    // Moving around the session should not mean stepping through answers you
+    // were happy with.
+    expect(goTo(STEPS, fresh(), 2, at(5)).cursor).toBe(2);
+  });
+
+  it('jumps backwards', () => {
+    expect(goTo(STEPS, fresh({ cursor: 2 }), 0, at(5)).cursor).toBe(0);
+  });
+
+  it('clamps to the session rather than running off either end', () => {
+    expect(goTo(STEPS, fresh(), -5, at(5)).cursor).toBe(0);
+    expect(goTo(STEPS, fresh(), 99, at(5)).cursor).toBe(STEPS.length);
+  });
+
+  it('is a no-op for the step already showing', () => {
+    const state = fresh();
+    expect(goTo(STEPS, state, 0, at(5))).toBe(state);
+  });
+
+  it('banks the phase clock when the jump crosses a phase', () => {
+    // A jump is not a way to get free time in a phase.
+    const state = goTo(STEPS, fresh(), 2, at(30));
+    expect(state.elapsed.look).toBe(30000);
+    expect(state.phaseEnteredAt).toBe(at(30));
+  });
+
+  it('leaves the clock alone within a phase', () => {
+    const state = goTo(STEPS, fresh(), 1, at(30));
+    expect(state.elapsed.look).toBeUndefined();
+    expect(state.phaseEnteredAt).toBe(T0);
+  });
+
+  it('leaves answers alone', () => {
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = goTo(STEPS, state, 2, at(6));
+    state = goTo(STEPS, state, 0, at(7));
+    expect(state.answers.clarity.values).toEqual(['clear']);
+  });
+
+  it('can jump to the end, which is the summary', () => {
+    const state = goTo(STEPS, fresh(), STEPS.length, at(5));
+    expect(isFinished(STEPS, state)).toBe(true);
+  });
+});
+
+describe('questionStates', () => {
+  it('marks unanswered questions', () => {
+    expect(questionStates(STEPS, fresh()).map((q) => q.status)).toEqual([
+      'unanswered',
+      'unanswered',
+      'unanswered',
+    ]);
+  });
+
+  it('distinguishes answered from skipped from not-yet', () => {
+    // "I decided I was unsure" and "I have not got there" are different
+    // facts, and a done/not-done flag collapses exactly the distinction
+    // PRD §6.1 asks the app to keep.
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = next(STEPS, state, at(6));
+    state = skip(STEPS, state, at(7));
+
+    expect(questionStates(STEPS, state).map((q) => q.status)).toEqual([
+      'answered',
+      'skipped',
+      'unanswered',
+    ]);
+  });
+
+  it('marks exactly one question as current', () => {
+    const states = questionStates(STEPS, fresh({ cursor: 1 }));
+    expect(states.filter((q) => q.current).map((q) => q.index)).toEqual([1]);
+  });
+
+  it('carries the short label the rail renders', () => {
+    expect(questionStates(STEPS, fresh()).map((q) => q.short)).toEqual([
+      'Clarity',
+      'Colour',
+      'Aromas',
+    ]);
+  });
+
+  it('falls back to the prompt when a question has no short label', () => {
+    const steps = buildSteps({
+      phases: [
+        {
+          code: 'look',
+          label: 'Look',
+          seconds: 45,
+          questions: [{ code: 'x', prompt: 'A long prompt', control: 'single', options: [] }],
+        },
+      ],
+    });
+    expect(questionStates(steps, fresh())[0].short).toBe('A long prompt');
+  });
+
+  it('treats a multi-select emptied back out as unanswered', () => {
+    let state = answer(STEPS, fresh({ cursor: 2 }), 'lemon', at(5));
+    state = answer(STEPS, state, 'lemon', at(6));
+    expect(questionStates(STEPS, state)[2].status).toBe('unanswered');
+  });
+});
+
+describe('phaseStates', () => {
+  it('reports one entry per phase, in running order', () => {
+    expect(phaseStates(STEPS, fresh()).map((p) => p.code)).toEqual(['look', 'smell']);
+  });
+
+  it('counts answered against total', () => {
+    const state = answer(STEPS, fresh(), 'clear', at(5));
+    expect(phaseStates(STEPS, state)[0]).toMatchObject({ answered: 1, total: 2 });
+  });
+
+  it('counts a skip as dealt with', () => {
+    const state = skip(STEPS, fresh(), at(5));
+    expect(phaseStates(STEPS, state)[0].answered).toBe(1);
+  });
+
+  it('marks the phase being tasted as current', () => {
+    expect(phaseStates(STEPS, fresh()).map((p) => p.status)).toEqual([
+      'current',
+      'todo',
+    ]);
+  });
+
+  it('marks a finished phase done once you have left it', () => {
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = next(STEPS, state, at(6));
+    state = answer(STEPS, state, 'ruby', at(7));
+    state = next(STEPS, state, at(8));
+
+    expect(phaseStates(STEPS, state).map((p) => p.status)).toEqual([
+      'done',
+      'current',
+    ]);
+  });
+
+  it('marks a half-finished phase partial', () => {
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = goTo(STEPS, state, 2, at(6));
+    expect(phaseStates(STEPS, state)[0].status).toBe('partial');
+  });
+
+  it('gives each phase the step to jump to', () => {
+    expect(phaseStates(STEPS, fresh()).map((p) => p.firstStep)).toEqual([0, 2]);
+  });
+});
+
+describe('allAnswered', () => {
+  it('is false while anything is untouched', () => {
+    expect(allAnswered(STEPS, fresh())).toBe(false);
+  });
+
+  it('is true once every question is answered or skipped', () => {
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = answer(STEPS, next(STEPS, state, at(6)), 'ruby', at(7));
+    state = skip(STEPS, next(STEPS, state, at(8)), at(9));
+    expect(allAnswered(STEPS, state)).toBe(true);
   });
 });

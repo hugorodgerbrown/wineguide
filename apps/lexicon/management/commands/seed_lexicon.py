@@ -23,8 +23,8 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandParser
 from django.db import transaction
 
-from apps.lexicon.models import Lexicon, Option, Question
-from apps.lexicon.seed_data import QUESTIONS, OptionSpec
+from apps.lexicon.models import Inference, Lexicon, Option, Question
+from apps.lexicon.seed_data import INFERENCES, QUESTIONS, OptionSpec
 
 
 class Command(BaseCommand):
@@ -57,6 +57,7 @@ class Command(BaseCommand):
         # would leave any question dropped from seed_data behind in the
         # database, still being served, with nothing pointing at it.
         lexicon.questions.all().delete()
+        lexicon.inferences.all().delete()
 
         for order, spec in enumerate(QUESTIONS):
             question = Question.objects.create(
@@ -64,12 +65,23 @@ class Command(BaseCommand):
                 phase=spec["phase"],
                 code=spec["code"],
                 prompt=spec["prompt"],
-                help_text=spec.get("help", ""),
+                short_label=spec.get("short", ""),
+                how_to_tell=spec.get("how", ""),
+                why_it_matters=spec.get("why", ""),
                 control=spec["control"],
                 wine_types=list(spec.get("wine_types", [])),
                 order=order,
             )
             self._create_options(question, spec.get("options", []))
+
+        for order, inference in enumerate(INFERENCES):
+            Inference.objects.create(
+                lexicon=lexicon,
+                code=inference["code"],
+                label=inference["label"],
+                explanation=inference["explanation"],
+                order=order,
+            )
 
         if activate:
             # Deactivate first: the partial unique index refuses a second
@@ -79,14 +91,12 @@ class Command(BaseCommand):
             lexicon.is_active = True
             lexicon.save(update_fields=["is_active"])
 
-        counts = (
-            lexicon.questions.count(),
-            Option.objects.filter(question__lexicon=lexicon).count(),
-        )
         self.stdout.write(
             self.style.SUCCESS(
                 f"{'Created' if created else 'Updated'} lexicon {version}: "
-                f"{counts[0]} questions, {counts[1]} options"
+                f"{lexicon.questions.count()} questions, "
+                f"{Option.objects.filter(question__lexicon=lexicon).count()} options, "
+                f"{lexicon.inferences.count()} inferences"
                 f"{' (active)' if activate else ''}"
             )
         )
@@ -104,6 +114,9 @@ class Command(BaseCommand):
                 parent=parent,
                 code=spec["code"],
                 label=spec["label"],
+                guidance=spec.get("guidance", ""),
+                origin=spec.get("origin", ""),
+                implies=spec.get("implies", ""),
                 swatch=spec.get("swatch", ""),
                 wine_types=list(spec.get("wine_types", [])),
                 order=order,

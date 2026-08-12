@@ -132,11 +132,11 @@ class TestBuildPayload:
     def test_builds_in_a_constant_number_of_queries(
         self, lexicon: Lexicon, django_assert_num_queries: Any
     ) -> None:
-        """Two queries whatever the size — questions, and their options
-        prefetched. A payload that scaled with the vocabulary would be a
-        problem at the one moment the taster is waiting.
+        """Three queries whatever the size — the questions, their options
+        prefetched, and the inferences. A payload that scaled with the
+        vocabulary would be a problem at the one moment the taster is waiting.
         """
-        with django_assert_num_queries(2):
+        with django_assert_num_queries(3):
             build_payload(lexicon, WineType.STILL_RED)
 
 

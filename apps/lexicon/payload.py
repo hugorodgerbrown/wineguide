@@ -52,16 +52,28 @@ from apps.core.enums import PHASE_ORDER, PHASE_SECONDS, Phase
 from .models import Lexicon, Option, Question
 
 
-def _option_payload(option: Option, children: list[Option], wine_type: str) -> dict:
-    """Serialise one option and the descriptors beneath it."""
+def _one_option(option: Option) -> dict:
+    """Serialise a single option, without its children."""
     return {
         "code": option.code,
         "label": option.label,
+        # How to know it is this one and not the one beside it. The whole
+        # difficulty of a scale question lives in this string.
+        "guidance": option.guidance,
+        # The tags the client's inference module reads to sort descriptors and
+        # name the processes they point at.
+        "origin": option.origin,
+        "implies": option.implies,
         "swatch": option.swatch,
+    }
+
+
+def _option_payload(option: Option, children: list[Option], wine_type: str) -> dict:
+    """Serialise one option and the descriptors beneath it."""
+    return {
+        **_one_option(option),
         "children": [
-            {"code": child.code, "label": child.label, "swatch": child.swatch}
-            for child in children
-            if child.applies_to(wine_type)
+            _one_option(child) for child in children if child.applies_to(wine_type)
         ],
     }
 
@@ -77,7 +89,12 @@ def _question_payload(question: Question, wine_type: str) -> dict:
     return {
         "code": question.code,
         "prompt": question.prompt,
-        "help": question.help_text,
+        # One or two words, for the navigation rail.
+        "short": question.nav_label,
+        # Shown on the question itself — the physical instruction.
+        "how": question.how_to_tell,
+        # Available on tap — what the answer says about the wine.
+        "why": question.why_it_matters,
         "control": question.control,
         "options": [
             _option_payload(option, children_by_parent.get(option.id, []), wine_type)
@@ -136,4 +153,15 @@ def build_payload(lexicon: Lexicon, wine_type: str) -> dict[str, Any]:
         "version": lexicon.version,
         "wine_type": wine_type,
         "phases": phases,
+        # The conclusions the client can draw offline. Sent with the questions
+        # rather than fetched at the end, because the end of a session is
+        # exactly when the network is least likely to be there.
+        "inferences": [
+            {
+                "code": inference.code,
+                "label": inference.label,
+                "explanation": inference.explanation,
+            }
+            for inference in lexicon.inferences.all()
+        ],
     }

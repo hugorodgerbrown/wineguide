@@ -23,6 +23,7 @@ import {
   buildSteps,
   complete,
   createSession,
+  goTo,
   isFinished,
   next,
   pause,
@@ -32,6 +33,7 @@ import {
   skip,
   toPayload,
 } from './session_core.js';
+import { interpret } from './session_inference.js';
 import {
   latestUnfinished,
   loadLexicon,
@@ -40,7 +42,14 @@ import {
   saveSession,
 } from './session_db.js';
 import { csrfToken, drainQueue, pushSession } from './session_sync.js';
-import { paint, renderQuestion, renderSetup, renderSummary, screenFor } from './session_ui.js';
+import {
+  paint,
+  renderQuestion,
+  renderSetup,
+  renderStorageWarning,
+  renderSummary,
+  screenFor,
+} from './session_ui.js';
 
 /** @returns {string} An ISO timestamp with a UTC offset, as the API requires. */
 const now = () => new Date().toISOString();
@@ -53,25 +62,25 @@ const now = () => new Date().toISOString();
  * case is current and the offline case still works.
  *
  * @param {object} options
- * @param {IDBDatabase} options.db
+ * @param {object} options.store - Persistence, real or no-op.
  * @param {string} options.urlTemplate - With WINE_TYPE to substitute.
  * @param {string} options.wineType
  * @param {Function} options.fetchFn
  * @returns {Promise<object|null>}
  */
-export async function fetchLexicon({ db, urlTemplate, wineType, fetchFn }) {
+export async function fetchLexicon({ store, urlTemplate, wineType, fetchFn }) {
   const url = urlTemplate.replace('WINE_TYPE', wineType);
   try {
     const response = await fetchFn(url, { credentials: 'same-origin' });
     if (response.ok) {
       const payload = await response.json();
-      await saveLexicon(db, wineType, payload);
+      await store.saveLexicon(wineType, payload);
       return payload;
     }
   } catch (e) {
     /* Offline. Fall through to whatever we cached. */
   }
-  return loadLexicon(db, wineType);
+  return store.loadLexicon(wineType);
 }
 
 /**
@@ -90,10 +99,36 @@ export async function startSessionApp({
   fetchFn = globalThis.fetch.bind(globalThis),
   db = null,
 }) {
-  const database = db || (await openDb());
+  // A session that cannot persist locally is worth far more than no session
+  // at all, so a database that will not open is a degraded mode rather than a
+  // failure. Everything still works; it just would not survive a reload, and
+  // the taster is told so rather than finding out the hard way.
+  let database = db;
+  let storageWorks = true;
+  if (!database) {
+    try {
+      database = await openDb();
+    } catch (e) {
+      database = null;
+      storageWorks = false;
+    }
+  }
+
   let steps = [];
   let payload = null;
   let state = null;
+
+  /** Persistence, or a no-op when the database would not open. */
+  const store = {
+    save: (value) =>
+      database ? saveSession(database, value).catch(() => {}) : Promise.resolve(),
+    saveLexicon: (wineType, value) =>
+      database ? saveLexicon(database, wineType, value).catch(() => {}) : Promise.resolve(),
+    loadLexicon: (wineType) =>
+      database ? loadLexicon(database, wineType).catch(() => null) : Promise.resolve(null),
+    latestUnfinished: () =>
+      database ? latestUnfinished(database).catch(() => null) : Promise.resolve(null),
+  };
 
   const labelFor = (questionCode, optionCode) => {
     for (const step of steps) {
@@ -114,7 +149,7 @@ export async function startSessionApp({
     // not wait for a disk to see the next prompt. A rejection is logged
     // rather than surfaced — there is nothing they could do about it, and
     // the sync queue is the backstop.
-    saveSession(database, state).catch(() => {});
+    store.save(state);
     render();
     schedulePush();
   };
@@ -144,15 +179,22 @@ export async function startSessionApp({
     onSkip: () => commit(next(steps, skip(steps, state, now()), now())),
     onNext: () => commit(next(steps, state, now())),
     onBack: () => commit(previous(steps, state, now())),
+    // Direct jumps from the phase rail, the question rail, and every line of
+    // the summary. Moving around the session should not mean stepping through
+    // answers you were happy with.
+    onJump: (index) => commit(goTo(steps, state, index, now())),
+    // The summary is reachable once everything is answered, without walking
+    // off the end of the last phase.
+    onReview: () => commit(goTo(steps, state, steps.length, now())),
     onPause: () => commit(pause(steps, state, now())),
     onResume: () => commit(resume(state, now())),
     onReveal: (actual) => {
       state = reveal(state, { ...state.actual, ...actual }, now());
-      saveSession(database, state).catch(() => {});
+      store.save(state);
     },
     onSave: async () => {
       state = complete(steps, state, now());
-      await saveSession(database, state);
+      await store.save(state);
       await push();
       // The journal is server-rendered, so a save with no network should not
       // navigate into a page that cannot load. The session is safely on disk
@@ -163,23 +205,34 @@ export async function startSessionApp({
   };
 
   function render() {
+    const screen = renderScreen();
+    // The warning sits above whatever screen follows and is repainted with
+    // it, because it stays true for the whole session.
+    if (!storageWorks) mount.replaceChildren(renderStorageWarning(), screen);
+    else paint(mount, screen);
+  }
+
+  function renderScreen() {
     if (!state) {
-      paint(
-        mount,
-        renderSetup({ wineTypes: bootstrap.wine_types, onStart: begin }),
-      );
-      return;
+      return renderSetup({ wineTypes: bootstrap.wine_types, onStart: begin });
     }
     if (screenFor(steps, state) === 'summary') {
-      paint(mount, renderSummary({ steps, state, labelFor, handlers }));
-      return;
+      return renderSummary({
+        steps,
+        state,
+        // Computed here rather than fetched: the end of a session is exactly
+        // when the network is least likely to be there.
+        reading: interpret(payload || { phases: [] }, state),
+        labelFor,
+        handlers,
+      });
     }
-    paint(mount, renderQuestion({ steps, state, now: now(), handlers }));
+    return renderQuestion({ steps, state, now: now(), handlers });
   }
 
   async function begin(wineType, wine) {
     payload = await fetchLexicon({
-      db: database,
+      store,
       urlTemplate: bootstrap.lexicon_url,
       wineType,
       fetchFn,
@@ -209,17 +262,17 @@ export async function startSessionApp({
 
   // Resume rather than restart. Someone who closed the tab mid-phase should
   // find the session where they left it (PRD §6.2, §7).
-  const unfinished = await latestUnfinished(database);
-  if (unfinished && !isFinished(buildSteps(await cachedPayload(unfinished)), unfinished)) {
-    payload = await cachedPayload(unfinished);
-    steps = buildSteps(payload);
-    state = unfinished;
-  }
-
-  async function cachedPayload(forState) {
-    return (
-      (await loadLexicon(database, forState.wineType)) || { phases: [], version: '' }
-    );
+  const unfinished = await store.latestUnfinished();
+  if (unfinished) {
+    const cached = (await store.loadLexicon(unfinished.wineType)) || {
+      phases: [],
+      version: '',
+    };
+    if (!isFinished(buildSteps(cached), unfinished)) {
+      payload = cached;
+      steps = buildSteps(payload);
+      state = unfinished;
+    }
   }
 
   render();
@@ -227,17 +280,25 @@ export async function startSessionApp({
   // Drain whatever the last visit could not deliver, and again whenever the
   // network comes back.
   const drain = () =>
-    drainQueue({
-      db: database,
-      url: bootstrap.sync_url,
-      fetchFn,
-      cookieString: document.cookie,
-      stepsFor: () => steps,
-    }).catch(() => {});
+    database
+      ? drainQueue({
+          db: database,
+          url: bootstrap.sync_url,
+          fetchFn,
+          cookieString: document.cookie,
+          stepsFor: () => steps,
+        }).catch(() => {})
+      : Promise.resolve();
   window.addEventListener('online', drain);
   drain();
 
-  return { getState: () => state, getSteps: () => steps, render, drain };
+  return {
+    getState: () => state,
+    getSteps: () => steps,
+    render,
+    drain,
+    storageWorks,
+  };
 }
 
 const mount = document.getElementById('session-app');

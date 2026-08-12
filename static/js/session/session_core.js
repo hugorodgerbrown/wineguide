@@ -346,6 +346,126 @@ export function progress(steps, state) {
 }
 
 /**
+ * Jump straight to a question.
+ *
+ * The taster should be able to move around the session the way they would
+ * move around a page — go back three questions to change an answer, skip
+ * ahead to the phase they are actually on — without stepping through
+ * everything in between. Bounded to the session, and a no-op for the step
+ * already showing.
+ *
+ * Banks the phase clock when the jump crosses a phase boundary, exactly as
+ * `next` does; a jump is not a way to get free time in a phase.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @param {number} index - Step to move to.
+ * @param {string} now - ISO timestamp.
+ * @returns {object} The next state.
+ */
+export function goTo(steps, state, index, now) {
+  const target = Math.max(0, Math.min(index, steps.length));
+  if (target === state.cursor) return state;
+
+  const leaving = steps[state.cursor];
+  const arriving = steps[target];
+  const changedPhase = !leaving || !arriving || leaving.phase !== arriving.phase;
+
+  return {
+    ...state,
+    cursor: target,
+    updatedAt: now,
+    elapsed: changedPhase && leaving ? accrue(state, leaving.phase, now) : state.elapsed,
+    phaseEnteredAt: changedPhase ? now : state.phaseEnteredAt,
+  };
+}
+
+/**
+ * What state each question is in, for the navigation rail.
+ *
+ * `answered`, `skipped` and `unanswered` are distinct on purpose: a taster
+ * looking at the rail needs to tell "I decided I was unsure about this" from
+ * "I have not got to this yet", and a single done/not-done flag collapses
+ * exactly the distinction PRD §6.1 asks the app to keep.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @returns {Array<{index: number, phase: string, short: string, prompt: string,
+ *   status: string, current: boolean}>}
+ */
+export function questionStates(steps, state) {
+  return steps.map((step, index) => {
+    const answered = state.answers[step.question.code];
+    let status = 'unanswered';
+    if (answered?.skipped) status = 'skipped';
+    else if (answered?.values.length) status = 'answered';
+    return {
+      index,
+      phase: step.phase,
+      short: step.question.short || step.question.prompt,
+      prompt: step.question.prompt,
+      status,
+      current: index === state.cursor,
+    };
+  });
+}
+
+/**
+ * A per-phase summary, for the phase rail.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @returns {Array<{code: string, label: string, firstStep: number,
+ *   answered: number, total: number, status: string}>}
+ */
+export function phaseStates(steps, state) {
+  const questions = questionStates(steps, state);
+  const order = [];
+  const byPhase = new Map();
+
+  steps.forEach((step, index) => {
+    if (!byPhase.has(step.phase)) {
+      order.push(step.phase);
+      byPhase.set(step.phase, {
+        code: step.phase,
+        label: step.phaseLabel,
+        firstStep: index,
+        answered: 0,
+        total: 0,
+        status: 'todo',
+      });
+    }
+    const phase = byPhase.get(step.phase);
+    phase.total += 1;
+    if (questions[index].status !== 'unanswered') phase.answered += 1;
+  });
+
+  const currentPhase = currentStep(steps, state)?.phase;
+  order.forEach((code) => {
+    const phase = byPhase.get(code);
+    if (code === currentPhase) phase.status = 'current';
+    else if (phase.answered === phase.total) phase.status = 'done';
+    else if (phase.answered > 0) phase.status = 'partial';
+  });
+
+  return order.map((code) => byPhase.get(code));
+}
+
+/**
+ * Whether every question has been answered or deliberately skipped.
+ *
+ * What lets the summary be reachable from anywhere rather than only by
+ * walking off the end of the last phase.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @returns {boolean}
+ */
+export function allAnswered(steps, state) {
+  return questionStates(steps, state).every((q) => q.status !== 'unanswered');
+}
+
+/**
  * Mark the session complete.
  *
  * @param {Array<object>} steps

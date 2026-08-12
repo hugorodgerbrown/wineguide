@@ -17,6 +17,37 @@
             {% translate "This session was never finished." %}
         </p>
     {% endif %}
+    {% comment %}
+        What the descriptors mean, rather than what the taster was asked to
+        conclude. They recorded brioche and butter; this is where the app says
+        lees ageing and malolactic conversion, and shows its working.
+    {% endcomment %}
+    {% if origin_groups or conclusions %}
+        <section
+            class="mb-6 flex flex-col gap-4 rounded-card border border-rule bg-paper-raised p-4"
+            data-role="reading"
+        >
+            <h2 class="font-sans text-meta tracking-eyebrow text-accent uppercase">
+                {% translate "What that tells you" %}
+            </h2>
+            {% for group in origin_groups %}
+                <div data-origin="{{ group.origin }}">
+                    <p class="font-sans text-meta tracking-widest text-ink-muted uppercase">{{ group.label }}</p>
+                    <p>{{ group.descriptors|join:", " }}</p>
+                </div>
+            {% endfor %}
+            {% for conclusion in conclusions %}
+                <div class="border-t border-rule pt-3" data-inference="{{ conclusion.code }}">
+                    <p class="font-medium">{{ conclusion.label }}</p>
+                    <p class="font-sans text-caption text-ink-muted">
+                        {% blocktranslate with evidence=conclusion.evidence|join:", " %}Because you found
+                            {{ evidence }}.{% endblocktranslate %}
+                    </p>
+                    <p class="mt-1 text-caption">{{ conclusion.explanation }}</p>
+                </div>
+            {% endfor %}
+        </section>
+    {% endif %}
     {% if session.guessed_grape or session.actual_grape %}
         <section class="mb-6 rounded-card border border-rule bg-paper-raised p-4">
             <h2 class="mb-3 font-sans text-meta tracking-widest text-ink-muted uppercase">
