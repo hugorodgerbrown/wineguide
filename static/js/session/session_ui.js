@@ -10,22 +10,28 @@
  * that is a handful of nodes, and a diffing layer would be more code than the
  * thing it optimises.
  *
- * Three things this screen is built around:
+ * The layout follows the Claude Design project "Wine Tasting Guide Design
+ * Directions", ui_kits/tasting-app. Four things carry that design, and each
+ * is doing a job:
  *
- *   1. **It teaches.** `how` sits under the prompt, always visible — not
- *      behind a toggle. Every option carries its own guidance, because the
- *      difference between medium and high acidity is the entire difficulty
- *      and a label alone teaches nobody.
- *   2. **You can see where you are.** One rail of every question in the
- *      session, filling in as they are answered, tappable, with a hairline
- *      where the phase changes. Back and Next name where they go rather than
- *      saying "back" and "next".
- *   3. **It never scores you.** No streaks, no right answers, nothing that
+ *   1. **The note card leads.** "Your note so far" shows the sentence being
+ *      composed — "Clear, medium, ruby…" — with the progress markers and the
+ *      count inside it. The session reads as writing a note rather than
+ *      filling in a form, and the thing being built is never off screen.
+ *   2. **The wine themes the session.** The style chosen at setup sets the
+ *      accent, the paper tint, the action bar and the depth ramp, so a red
+ *      session looks like red wine. Set with data-wine on the mount.
+ *   3. **It teaches.** The hint sits under the question, in the open. Every
+ *      option carries its own guidance, because the difference between medium
+ *      and high acidity is the entire difficulty and a label alone teaches
+ *      nobody. "Why it matters" is a sheet, one tap away.
+ *   4. **It never scores you.** No streaks, no right answers, nothing that
  *      reads as wrong (PRD §7).
  *
  * Other rules from §7 that are load-bearing rather than decorative: big tap
- * targets, one question per screen, primary actions in thumb reach, and
- * colour never the only signal — a swatch always sits beside its label.
+ * targets (76px option rows, 52px controls), one question per screen, the
+ * action bar pinned in thumb reach, and colour never the only signal — a
+ * swatch always sits beside its label.
  */
 
 import {
@@ -33,6 +39,7 @@ import {
   currentStep,
   isFinished,
   isOverBudget,
+  noteSoFar,
   phaseElapsedMs,
   progress,
   questionStates,
@@ -62,30 +69,66 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// Layout only. Colour lives in CHIP_OFF / CHIP_ON, and the two sets are
-// mutually exclusive rather than layered: putting `bg-accent` after
-// `bg-paper-raised` in a class string does NOT make it win, because the
-// cascade goes by stylesheet order, not by the order classes are written.
-// Composing them was how the selected chip came out dark-on-dark.
-const CHIP =
-  'flex min-h-14 w-full cursor-pointer flex-col items-start gap-1 rounded-card ' +
-  'border px-4 py-3 text-start font-sans';
-const CHIP_OFF = 'border-rule bg-paper-raised text-ink';
-const CHIP_ON = 'border-accent bg-accent text-accent-contrast';
-const BUTTON =
-  'min-h-12 rounded-card px-5 py-3 font-sans text-caption cursor-pointer';
-const PRIMARY = `${BUTTON} bg-accent text-accent-contrast`;
-const SECONDARY = `${BUTTON} border border-rule text-ink-muted`;
+/**
+ * Build an inline SVG icon from a path.
+ *
+ * @param {string} d - Path data.
+ * @param {object} [options]
+ * @returns {SVGElement}
+ */
+function icon(d, { size = 20, stroke = 'currentColor', width = 1.6 } = {}) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', stroke);
+  svg.setAttribute('stroke-width', String(width));
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('shrink-0');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  svg.append(path);
+  return svg;
+}
+
+const CHEVRON_LEFT = 'M15 6l-6 6 6 6';
+const LIGHTBULB = 'M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5V16H8v-2.5A6 6 0 0 1 12 3z';
+
+// Layout only. Colour lives in the ON/OFF pairs, and the two sets are
+// mutually exclusive rather than layered: putting `border-accent` after
+// `border-rule` in a class string does NOT make it win, because the cascade
+// goes by stylesheet order, not by the order classes are written. Composing
+// them was how the selected chip once came out dark-on-dark.
+const OPTION =
+  'flex w-full min-h-19 cursor-pointer items-center gap-4 rounded-card ' +
+  'border px-4 py-4 text-start';
+const OPTION_OFF = 'border-rule bg-paper-sunken';
+const OPTION_ON = 'border-accent bg-paper-raised';
+
+const CONTROL =
+  'min-h-13 cursor-pointer rounded-control px-5 font-sans text-control font-medium';
+const PRIMARY = `${CONTROL} flex-1 bg-accent text-accent-contrast`;
+const SECONDARY = `${CONTROL} border border-rule-strong text-ink`;
+
+const META = 'font-mono text-meta tracking-meta uppercase text-ink-faint';
+const META_LG = 'font-mono text-meta-lg tracking-meta uppercase';
 
 /** Marker styles for the progress rail, by answer state. */
 const MARKER = {
   answered: 'bg-accent',
-  skipped: 'border border-dashed border-ink-muted',
-  unanswered: 'border border-rule',
+  skipped: 'border border-dashed border-ink-disabled',
+  unanswered: 'border border-rule-strong',
 };
 
 /**
  * Render the setup screen: wine style, and optionally what the wine is.
+ *
+ * Each style previews its own theme — the swatch is that wine's mid depth —
+ * so the choice shows what the session will look like, not just what it is
+ * called.
  *
  * @param {object} options
  * @param {Array<{value: string, label: string}>} options.wineTypes
@@ -93,30 +136,47 @@ const MARKER = {
  * @returns {HTMLElement}
  */
 export function renderSetup({ wineTypes, onStart }) {
-  let chosen = wineTypes[0]?.value;
+  let chosen = null;
 
-  const form = el('form', { class: 'flex flex-col gap-6' });
-  const styleGroup = el('div', { class: 'flex flex-col gap-3', role: 'radiogroup' });
+  const form = el('form', { class: 'flex flex-1 flex-col gap-5' });
+  const styleGroup = el('div', { class: 'flex flex-col gap-2.5', role: 'radiogroup' });
+  const start = el('button', {
+    type: 'submit',
+    class: `${PRIMARY} w-full`,
+    text: 'Start tasting',
+    disabled: true,
+  });
+  start.classList.add('opacity-35');
 
   const buttons = wineTypes.map((type) =>
     el(
       'button',
       {
         type: 'button',
-        class: `${CHIP} ${type.value === chosen ? CHIP_ON : CHIP_OFF}`,
+        class: `${OPTION} ${OPTION_OFF}`,
         role: 'radio',
-        'aria-checked': type.value === chosen ? 'true' : 'false',
-        dataset: { value: type.value },
+        'aria-checked': 'false',
+        // Themes the row itself, so the swatch is the wine's own colour.
+        dataset: { value: type.value, wine: type.value },
         onclick: () => {
           chosen = type.value;
           buttons.forEach((b) => {
             const on = b.dataset.value === chosen;
-            b.className = `${CHIP} ${on ? CHIP_ON : CHIP_OFF}`;
+            b.className = `${OPTION} ${on ? OPTION_ON : OPTION_OFF}`;
             b.setAttribute('aria-checked', on ? 'true' : 'false');
           });
+          form.dataset.wine = chosen;
+          start.disabled = false;
+          start.classList.remove('opacity-35');
         },
       },
-      [type.label],
+      [
+        el('span', {
+          class: 'size-8 shrink-0 rounded-full border border-rule-strong bg-depth-2',
+          'aria-hidden': 'true',
+        }),
+        el('span', { class: 'font-serif text-answer', text: type.label }),
+      ],
     ),
   );
   buttons.forEach((b) => styleGroup.append(b));
@@ -124,26 +184,29 @@ export function renderSetup({ wineTypes, onStart }) {
   const blind = el('input', {
     type: 'checkbox',
     id: 'blind',
-    class: 'size-5',
+    class: 'size-5.5 accent-accent',
     checked: true,
   });
   const nameInput = el('input', {
     type: 'text',
     id: 'wine-name',
-    class: 'rounded-card border border-rule bg-paper-raised px-4 py-3 font-sans',
+    class:
+      'rounded-control border border-rule bg-paper-raised px-4 py-3 font-sans text-body',
     placeholder: 'Optional',
     autocomplete: 'off',
   });
   const producerInput = el('input', {
     type: 'text',
     id: 'wine-producer',
-    class: 'rounded-card border border-rule bg-paper-raised px-4 py-3 font-sans',
+    class:
+      'rounded-control border border-rule bg-paper-raised px-4 py-3 font-sans text-body',
     placeholder: 'Optional',
     autocomplete: 'off',
   });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
+    if (!chosen) return;
     onStart(chosen, {
       name: nameInput.value.trim(),
       producer: producerInput.value.trim(),
@@ -152,15 +215,19 @@ export function renderSetup({ wineTypes, onStart }) {
   });
 
   form.append(
-    el('div', {}, [
-      el('h1', { class: 'mb-2 text-display font-medium', text: 'What are you tasting?' }),
+    el('div', { class: 'flex flex-col gap-2' }, [
+      el('span', { class: META, text: 'New tasting' }),
+      el('h1', {
+        class: 'font-serif text-question font-normal',
+        text: 'What are you tasting?',
+      }),
       el('p', {
-        class: 'text-ink-muted',
-        text: 'The style decides which questions you get — a Riesling gets no tannin question.',
+        class: 'font-sans text-body text-ink-muted',
+        text: 'The style decides which questions you get — and how the session looks.',
       }),
     ]),
     styleGroup,
-    el('label', { class: 'flex items-center gap-3 font-sans', for: 'blind' }, [
+    el('label', { class: 'flex items-center gap-3 font-sans text-body', for: 'blind' }, [
       blind,
       'Tasting blind',
     ]),
@@ -170,21 +237,13 @@ export function renderSetup({ wineTypes, onStart }) {
         text: 'Name the wine now (optional)',
       }),
       el('div', { class: 'mt-3 flex flex-col gap-3' }, [
-        el('label', {
-          class: 'text-meta tracking-widest uppercase',
-          for: 'wine-producer',
-          text: 'Producer',
-        }),
+        el('label', { class: META, for: 'wine-producer', text: 'Producer' }),
         producerInput,
-        el('label', {
-          class: 'text-meta tracking-widest uppercase',
-          for: 'wine-name',
-          text: 'Wine',
-        }),
+        el('label', { class: META, for: 'wine-name', text: 'Wine' }),
         nameInput,
       ]),
     ]),
-    el('button', { type: 'submit', class: PRIMARY, text: 'Start tasting' }),
+    el('div', { class: 'mt-auto pt-4' }, [start]),
   );
   return form;
 }
@@ -201,7 +260,7 @@ export function renderSetup({ wineTypes, onStart }) {
 export function renderStorageWarning() {
   return el('p', {
     class:
-      'mb-4 rounded-card border border-accent bg-paper-raised px-4 py-3 font-sans text-caption',
+      'mb-4 rounded-card border border-accent bg-paper-raised px-4 py-3 font-sans text-fact',
     role: 'status',
     dataset: { role: 'storage-warning' },
     text:
@@ -214,16 +273,13 @@ export function renderStorageWarning() {
 /**
  * Render the progress rail: every question in the session, in one run.
  *
- * One marker per question, start to finish, filling in as they are answered —
- * not four groups under four headings. The taster is walking a single
- * sequence, and splitting the rail by phase made them count twice to work out
- * where they were. Phase changes are a thin separator; the phase itself is
- * named under the actions, where the question count already sits.
+ * One marker per question, start to finish, filling in as they are answered.
+ * The taster is walking a single sequence, so the rail is a single sequence —
+ * splitting it by phase made them count twice to work out where they were.
+ * Phase changes are a hairline.
  *
- * Answered and not-yet are the two marks a live session produces. The dashed
- * `skipped` mark is still rendered because sessions recorded before the
- * "Not sure" button was removed carry it, and a note that silently loses a
- * line is worse than one with an unfamiliar mark.
+ * Lives inside the note card, beside the count, because it is about the note
+ * being built rather than about the screen.
  *
  * @param {Array<object>} steps
  * @param {object} state
@@ -232,7 +288,7 @@ export function renderStorageWarning() {
  */
 export function renderProgressRail(steps, state, onJump) {
   const rail = el('nav', {
-    class: 'flex flex-wrap items-center gap-y-1',
+    class: 'flex flex-1 flex-wrap items-center gap-y-1',
     'aria-label': 'All questions',
   });
 
@@ -242,7 +298,7 @@ export function renderProgressRail(steps, state, onJump) {
     // carries the grouping without depending on seeing the gap.
     if (question.startsPhase && question.index > 0) {
       rail.append(
-        el('span', { class: 'mx-1 h-3 w-px bg-rule', 'aria-hidden': 'true' }),
+        el('span', { class: 'mx-1 h-2.5 w-px bg-rule-strong', 'aria-hidden': 'true' }),
       );
     }
 
@@ -252,10 +308,7 @@ export function renderProgressRail(steps, state, onJump) {
         {
           type: 'button',
           // Small mark, larger hit area: the padding is the tap target.
-          // Kept tight so twenty markers plus their separators fit one line
-          // at the reading measure — a rail that wraps to a stranded second
-          // row stops reading as one sequence, which is the whole point.
-          class: 'cursor-pointer p-1',
+          class: 'cursor-pointer px-0.5 py-1',
           'aria-label': `${question.phaseLabel}, ${question.short}: ${question.status}`,
           'aria-current': question.current ? 'step' : null,
           title: `${question.short} — ${question.status}`,
@@ -265,8 +318,8 @@ export function renderProgressRail(steps, state, onJump) {
         [
           el('span', {
             class:
-              `block size-3 rounded-full ${MARKER[question.status]} ` +
-              (question.current ? 'ring-2 ring-accent ring-offset-2 ring-offset-paper' : ''),
+              `block size-2.5 rounded-full ${MARKER[question.status]} ` +
+              (question.current ? 'ring-2 ring-accent ring-offset-1 ring-offset-paper-raised' : ''),
           }),
         ],
       ),
@@ -277,45 +330,164 @@ export function renderProgressRail(steps, state, onJump) {
 }
 
 /**
+ * Render the note card: the sentence being composed, and how far in you are.
+ *
+ * The accent rule along its top is the wine's own colour, so the card is the
+ * one place the style being tasted is always visible.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @param {(index: number) => void} onJump
+ * @returns {HTMLElement}
+ */
+export function renderNoteCard(steps, state, onJump) {
+  const note = noteSoFar(steps, state);
+  const p = progress(steps, state);
+  const answered = questionStates(steps, state).filter(
+    (q) => q.status !== 'unanswered',
+  ).length;
+  const pad = (n) => String(n).padStart(2, '0');
+
+  return el(
+    'section',
+    {
+      class:
+        'flex flex-col gap-2.5 rounded-card border border-rule border-t-3 ' +
+        'border-t-accent bg-paper-raised px-4 py-3.5',
+      dataset: { role: 'note-card' },
+      'aria-label': 'Your note so far',
+    },
+    [
+      el('span', { class: META, text: 'Your note so far' }),
+      el('p', { class: 'font-serif text-note' }, [
+        note,
+        // The unwritten half, in a ghosted colour: the sentence is visibly
+        // incomplete, which is the point — it is being composed, not stored.
+        el('span', { class: 'text-ink-ghost', text: note ? ' …' : '…' }),
+      ]),
+      el('div', { class: 'flex items-center gap-3' }, [
+        renderProgressRail(steps, state, onJump),
+        el('span', {
+          class: 'shrink-0 font-mono text-meta text-ink-faint',
+          text: `${pad(answered)}/${pad(p.total)}`,
+        }),
+      ]),
+    ],
+  );
+}
+
+/**
  * Render one option, with the guidance that says how to know it is this one.
  *
+ * A scale question gets a graded swatch per rung, drawn from the wine's depth
+ * ramp — so "pale / medium / deep" is shown as well as named. The swatch is
+ * never the only signal; the label is always there beside it (PRD §8).
+ *
  * @param {object} option
+ * @param {object} question
+ * @param {number} index - Position among its siblings, for the depth ramp.
  * @param {boolean} selected
  * @param {(code: string) => void} onPick
  * @returns {HTMLElement}
  */
-function renderChip(option, selected, onPick) {
+function renderOption(option, question, index, selected, onPick) {
+  const isScale = question.control === 'scale';
+  const rung = Math.min(index + 1, 3);
+
   return el(
     'button',
     {
       type: 'button',
-      class: `${CHIP} ${selected ? CHIP_ON : CHIP_OFF}`,
+      class: `${OPTION} ${selected ? OPTION_ON : OPTION_OFF}`,
       'aria-pressed': selected ? 'true' : 'false',
       dataset: { code: option.code },
       onclick: () => onPick(option.code),
     },
     [
-      el('span', { class: 'flex items-center gap-3' }, [
-        option.swatch
-          ? el('span', {
-              class: 'size-5 shrink-0 rounded-full border border-rule',
-              style: `background:${option.swatch}`,
-              'aria-hidden': 'true',
-            })
-          : null,
-        el('span', { text: option.label }),
-      ]),
-      option.guidance
+      option.swatch
         ? el('span', {
-            // Muted against the card, but inheriting the contrast colour when
-            // the chip is selected — otherwise the guidance vanishes at the
-            // moment the taster has just chosen it.
-            class: selected ? 'text-caption opacity-90' : 'text-caption text-ink-muted',
-            text: option.guidance,
+            class: 'size-10 shrink-0 rounded-full border border-rule-strong',
+            style: `background:${option.swatch}`,
+            'aria-hidden': 'true',
           })
         : null,
+      !option.swatch && isScale
+        ? el('span', {
+            class: `size-10 shrink-0 rounded-full border border-rule-strong bg-depth-${rung}`,
+            'aria-hidden': 'true',
+          })
+        : null,
+      el('span', { class: 'flex flex-col gap-1' }, [
+        el('span', { class: 'font-serif text-answer', text: option.label }),
+        option.guidance
+          ? el('span', {
+              class: 'font-sans text-fact text-ink-muted',
+              text: option.guidance,
+            })
+          : null,
+      ]),
     ],
   );
+}
+
+/**
+ * Render the "why it matters" sheet.
+ *
+ * A sheet rather than a disclosure toggle: it is a paragraph the taster reads
+ * once and dismisses, and inlining it would push the options off screen every
+ * time somebody was curious.
+ *
+ * @param {string} text
+ * @param {() => void} onClose
+ * @returns {DocumentFragment} The scrim and the sheet.
+ */
+export function renderRubricSheet(text, onClose) {
+  // Fixed to the viewport, not to the screen section. The design frames the
+  // app in a fixed-height device, where "bottom of the container" and "bottom
+  // of what you can see" are the same edge; on a real page that is only true
+  // of the viewport, and anchoring to the section put the sheet below the
+  // fold on a long question.
+  const scrim = el('div', {
+    class: 'fixed inset-0 z-20 bg-ink/20',
+    dataset: { role: 'rubric-scrim' },
+    'aria-hidden': 'true',
+    onclick: onClose,
+  });
+
+  const sheet = el(
+    'div',
+    {
+      class:
+        'fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-measure flex-col gap-3 ' +
+        'rounded-t-card border-t border-rule-strong bg-paper-raised px-5 pt-4 pb-8',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': 'Why this matters',
+      dataset: { role: 'rubric-sheet' },
+    },
+    [
+      el('span', {
+        class: 'h-1 w-10 self-center rounded-full bg-rule-strong',
+        'aria-hidden': 'true',
+      }),
+      el('div', { class: 'flex items-center justify-between' }, [
+        el('span', { class: META, text: 'Why this matters' }),
+        el('button', {
+          type: 'button',
+          class: 'cursor-pointer font-sans text-caption text-ink-muted',
+          dataset: { action: 'close-rubric' },
+          text: 'Close',
+          onclick: onClose,
+        }),
+      ]),
+      el('p', { class: 'font-serif text-note', text }),
+    ],
+  );
+
+  // One fragment so the caller appends both, and the scrim stays behind.
+  const wrapper = document.createDocumentFragment();
+  wrapper.append(scrim, sheet);
+  return wrapper;
 }
 
 /**
@@ -325,49 +497,67 @@ function renderChip(option, selected, onPick) {
  * @param {Array<object>} options.steps
  * @param {object} options.state
  * @param {string} options.now - ISO timestamp.
+ * @param {boolean} options.rubricOpen
  * @param {object} options.handlers
  * @returns {HTMLElement}
  */
-export function renderQuestion({ steps, state, now, handlers }) {
+export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
   const step = currentStep(steps, state);
   const { question } = step;
   const answered = state.answers[question.code] || { values: [], skipped: false };
   const p = progress(steps, state);
   const questions = questionStates(steps, state);
   const elapsed = phaseElapsedMs(steps, state, step.phase, now);
+  const pad = (n) => String(n).padStart(2, '0');
 
-  const screen = el('section', { class: 'flex min-h-full flex-col gap-5' });
+  const screen = el('section', { class: 'relative flex flex-1 flex-col' });
 
+  // Top bar: back, where you are, pause. Icon buttons at 40px, which is the
+  // smallest thing on the screen and still comfortably tappable.
   screen.append(
-    // Where you are, above the rail rather than under the actions: the
-    // caption labels the markers, so the two are one block and read
-    // top-down — phase and position, then the markers, then the question.
-    // Grouped in their own column so the screen's gap does not push them
-    // apart into unrelated things.
-    el('div', { class: 'flex flex-col gap-2' }, [
-      el('p', {
-        class: 'font-sans text-meta tracking-widest text-ink-muted uppercase',
-        dataset: { role: 'position' },
-        text: `${step.phaseLabel} · question ${p.step} of ${p.total}`,
-      }),
-      el('div', { class: 'flex items-start justify-between gap-4' }, [
-        renderProgressRail(steps, state, handlers.onJump),
-        el('button', {
+    el('div', { class: 'flex items-center justify-between' }, [
+      el(
+        'button',
+        {
           type: 'button',
-          class: 'cursor-pointer font-sans text-caption text-ink-muted underline',
-          dataset: { action: state.paused ? 'resume' : 'pause' },
-          text: state.paused ? 'Resume' : 'Pause',
-          onclick: state.paused ? handlers.onResume : handlers.onPause,
+          class: 'flex size-10 cursor-pointer items-center justify-center text-ink-muted',
+          dataset: { action: 'back' },
+          'aria-label': questions[state.cursor - 1]
+            ? `Back to ${questions[state.cursor - 1].short}`
+            : 'Back to setup',
+          onclick: handlers.onBack,
+        },
+        [icon(CHEVRON_LEFT, { size: 22, width: 2 })],
+      ),
+      el('span', { class: META_LG }, [
+        el('span', { text: step.phaseLabel }),
+        ' ',
+        el('span', {
+          class: 'text-ink-faint',
+          text: `${pad(p.step)}/${pad(p.total)}`,
         }),
       ]),
+      el('button', {
+        type: 'button',
+        class: 'flex size-10 cursor-pointer items-center justify-center font-sans text-caption text-ink-muted',
+        dataset: { action: state.paused ? 'resume' : 'pause' },
+        text: state.paused ? 'Go' : 'II',
+        'aria-label': state.paused ? 'Resume' : 'Pause',
+        onclick: state.paused ? handlers.onResume : handlers.onPause,
+      }),
     ]),
-    // A meter, not a countdown. It fills, it goes accent-coloured when the
-    // budget is spent, and it never does anything else — the taster advances,
-    // not us.
+  );
+
+  screen.append(el('div', { class: 'mt-3' }, [renderNoteCard(steps, state, handlers.onJump)]));
+
+  // A meter, not a countdown. It fills, it goes accent-coloured when the
+  // budget is spent, and it never does anything else — the taster advances,
+  // not us.
+  screen.append(
     el(
       'div',
       {
-        class: 'h-1 w-full rounded-full bg-rule',
+        class: 'mt-3 h-0.5 w-full rounded-full bg-rule',
         role: 'progressbar',
         'aria-label': 'Time in this phase',
         'aria-valuenow': String(Math.round(elapsed / 1000)),
@@ -375,8 +565,8 @@ export function renderQuestion({ steps, state, now, handlers }) {
       },
       [
         el('div', {
-          class: `h-1 rounded-full ${
-            isOverBudget(steps, state, now) ? 'bg-accent' : 'bg-ink-muted'
+          class: `h-0.5 rounded-full ${
+            isOverBudget(steps, state, now) ? 'bg-accent' : 'bg-accent-quiet'
           }`,
           style: `width:${Math.min(100, (elapsed / (step.phaseSeconds * 1000)) * 100)}%`,
         }),
@@ -388,7 +578,7 @@ export function renderQuestion({ steps, state, now, handlers }) {
     screen.append(
       el('p', {
         class:
-          'rounded-card border border-rule bg-paper-raised p-6 text-center text-ink-muted',
+          'mt-6 rounded-card border border-rule bg-paper-raised p-6 text-center font-sans text-body text-ink-muted',
         role: 'status',
         text: 'Paused. Nothing is lost — pick it up when you are ready.',
       }),
@@ -396,37 +586,56 @@ export function renderQuestion({ steps, state, now, handlers }) {
     return screen;
   }
 
+  // The question, its eyebrow, and the instruction that teaches it.
   screen.append(
-    el('h1', { class: 'text-2xl leading-tight font-medium', text: question.prompt }),
+    el('div', { class: 'mt-6 flex flex-col gap-2' }, [
+      el('span', {
+        class: META,
+        text: `${step.phaseLabel} · ${question.short || question.code}`,
+      }),
+      el('h1', {
+        class: 'text-pretty font-serif text-question font-normal',
+        text: question.prompt,
+      }),
+      question.how
+        ? el('div', { class: 'mt-1.5 flex items-start gap-3' }, [
+            icon(LIGHTBULB, { size: 17, stroke: 'var(--color-accent)' }),
+            el('p', {
+              class: 'text-pretty font-sans text-body text-ink-muted',
+              dataset: { role: 'how-to-tell' },
+              text: question.how,
+            }),
+          ])
+        : null,
+    ]),
   );
 
-  // The instruction, in the open. This is what makes the app a tool rather
-  // than a quiz, so it does not go behind a toggle.
-  if (question.how) {
-    screen.append(
-      el('p', {
-        class:
-          'rounded-card border-s-2 border-accent bg-paper-raised px-4 py-3 font-sans text-caption',
-        dataset: { role: 'how-to-tell' },
-        text: question.how,
-      }),
-    );
-  }
-
-  const options = el('div', { class: 'flex flex-col gap-2' });
-  question.options.forEach((option) => {
+  const options = el('div', { class: 'mt-5 flex flex-col gap-2.5' });
+  question.options.forEach((option, index) => {
     options.append(
-      renderChip(option, answered.values.includes(option.code), handlers.onAnswer),
+      renderOption(
+        option,
+        question,
+        index,
+        answered.values.includes(option.code),
+        handlers.onAnswer,
+      ),
     );
     // A category's descriptors appear once it is chosen, so the first screen
-    // is a dozen chips rather than ninety.
+    // is a dozen rows rather than ninety.
     if (option.children?.length && answered.values.includes(option.code)) {
       const nested = el('div', {
         class: 'flex w-full flex-col gap-2 border-s-2 border-rule ps-3',
       });
-      option.children.forEach((child) => {
+      option.children.forEach((child, childIndex) => {
         nested.append(
-          renderChip(child, answered.values.includes(child.code), handlers.onAnswer),
+          renderOption(
+            child,
+            question,
+            childIndex,
+            answered.values.includes(child.code),
+            handlers.onAnswer,
+          ),
         );
       });
       options.append(nested);
@@ -436,57 +645,76 @@ export function renderQuestion({ steps, state, now, handlers }) {
 
   if (question.why) {
     screen.append(
-      el('details', { class: 'font-sans text-caption' }, [
-        el('summary', {
-          class: 'cursor-pointer text-ink-muted',
-          text: 'Why this matters',
-        }),
-        el('p', { class: 'mt-2 text-ink-muted', text: question.why }),
-      ]),
+      el(
+        'button',
+        {
+          type: 'button',
+          class: 'mt-2.5 flex cursor-pointer items-center gap-2.5 px-0.5 py-1',
+          dataset: { action: 'rubric' },
+          'aria-expanded': rubricOpen ? 'true' : 'false',
+          onclick: handlers.onRubric,
+        },
+        [
+          el('span', {
+            class:
+              'flex size-5 items-center justify-center rounded-full border ' +
+              'border-rule-strong font-mono text-meta-lg text-ink-muted',
+            text: '?',
+            'aria-hidden': 'true',
+          }),
+          el('span', {
+            class: 'border-b border-rule-strong font-sans text-caption',
+            text: 'Why it matters',
+          }),
+        ],
+      ),
     );
   }
 
-  // Actions last, so they sit at the bottom of the screen under a thumb. Both
-  // name their destination: "← Colour" tells you what you are about to see,
-  // where "Back" only tells you which way you are going.
-  const back = questions[state.cursor - 1];
-  const forward = questions[state.cursor + 1];
-
-  screen.append(
-    el('div', { class: 'mt-auto flex flex-col gap-3' }, [
-      // Always reachable. It used to appear only once every question was
-      // answered, which was fine while "Not sure" existed to dispose of the
-      // ones you could not answer. Without it, a single unanswerable question
-      // would hide the way to the summary for the rest of the session.
-      el('button', {
-        type: 'button',
-        class: 'cursor-pointer text-start font-sans text-caption underline',
-        dataset: { action: 'review' },
-        text: allAnswered(steps, state)
-          ? 'Everything is answered — review and save'
-          : 'Review and save',
-        onclick: handlers.onReview,
+  if (answered.skipped) {
+    screen.append(
+      el('p', {
+        class: 'mt-3 font-sans text-fact text-ink-muted',
+        text: 'Marked as unsure. You can come back to it.',
       }),
-      el('div', { class: 'flex flex-wrap items-center gap-3' }, [
-        back
-          ? el('button', {
-              type: 'button',
-              class: SECONDARY,
-              dataset: { action: 'back' },
-              text: `← ${back.short}`,
-              onclick: handlers.onBack,
-            })
-          : null,
+    );
+  }
+
+  // The action bar, pinned to the bottom of the screen and tinted with the
+  // wine's own bar colour. Back is the icon; forward names its destination,
+  // because "Depth →" tells you what you are about to see where "Next" only
+  // tells you which way you are going.
+  const forward = questions[state.cursor + 1];
+  screen.append(
+    el(
+      'div',
+      {
+        class:
+          '-mx-4 mt-auto flex items-center gap-2.5 border-t border-rule bg-bar ' +
+          'px-4 pt-3.5 pb-6 sm:-mx-6 sm:px-6',
+      },
+      [
         el('button', {
           type: 'button',
-          class: `${PRIMARY} ms-auto`,
+          class: `${SECONDARY} font-normal`,
+          dataset: { action: 'review' },
+          text: allAnswered(steps, state) ? 'Review ✓' : 'Review',
+          onclick: handlers.onReview,
+        }),
+        el('button', {
+          type: 'button',
+          class: PRIMARY,
           dataset: { action: 'next' },
-          text: forward ? `${forward.short} →` : 'Finish',
+          text: forward ? `${forward.short} →` : 'Review and save',
           onclick: handlers.onNext,
         }),
-      ]),
-    ]),
+      ],
+    ),
   );
+
+  if (rubricOpen && question.why) {
+    screen.append(renderRubricSheet(question.why, handlers.onRubric));
+  }
 
   return screen;
 }
@@ -508,38 +736,37 @@ export function renderReading(reading) {
     class: 'flex flex-col gap-4 rounded-card border border-rule bg-paper-raised p-4',
     dataset: { role: 'reading' },
   });
-  section.append(
-    el('h2', {
-      class: 'font-sans text-meta tracking-eyebrow text-accent uppercase',
-      text: 'What that tells you',
-    }),
-  );
+  section.append(el('h2', { class: META, text: 'What that tells you' }));
 
   reading.groups.forEach((group) => {
     section.append(
       el('div', { dataset: { origin: group.origin } }, [
-        el('p', {
-          class: 'font-sans text-meta tracking-widest text-ink-muted uppercase',
-          text: group.label,
-        }),
-        el('p', { text: group.descriptors.join(', ') }),
+        el('p', { class: META, text: group.label }),
+        el('p', { class: 'font-sans text-body', text: group.descriptors.join(', ') }),
       ]),
     );
   });
 
   reading.conclusions.forEach((conclusion) => {
     section.append(
-      el('div', { class: 'border-t border-rule pt-3', dataset: { inference: conclusion.code } }, [
-        el('p', { class: 'font-medium', text: conclusion.label }),
-        el('p', {
-          class: 'font-sans text-caption text-ink-muted',
-          // Shows its working. "Because you found butter and cream" is the
-          // teaching half; the label on its own is one more thing to learn by
-          // rote.
-          text: `Because you found ${conclusion.evidence.join(', ')}.`,
-        }),
-        el('p', { class: 'mt-1 text-caption', text: conclusion.explanation }),
-      ]),
+      el(
+        'div',
+        { class: 'border-t border-rule pt-3', dataset: { inference: conclusion.code } },
+        [
+          el('p', { class: 'font-serif text-answer', text: conclusion.label }),
+          el('p', {
+            class: 'font-sans text-fact text-ink-muted',
+            // Shows its working. "Because you found butter and cream" is the
+            // teaching half; the label on its own is one more thing to learn
+            // by rote.
+            text: `Because you found ${conclusion.evidence.join(', ')}.`,
+          }),
+          el('p', {
+            class: 'mt-1 font-sans text-fact',
+            text: conclusion.explanation,
+          }),
+        ],
+      ),
     );
   });
 
@@ -547,7 +774,7 @@ export function renderReading(reading) {
 }
 
 /**
- * Render the closing summary: what you found, what it means, then the save.
+ * Render the closing summary: the note, what it means, then the save.
  *
  * @param {object} options
  * @param {Array<object>} options.steps
@@ -558,44 +785,59 @@ export function renderReading(reading) {
  * @returns {HTMLElement}
  */
 export function renderSummary({ steps, state, reading, labelFor, handlers }) {
-  const screen = el('section', { class: 'flex flex-col gap-6' });
+  const screen = el('section', { class: 'flex flex-1 flex-col gap-5' });
+  const note = noteSoFar(steps, state);
+
   screen.append(
-    el('div', {}, [
-      el('h1', { class: 'mb-2 text-display font-medium', text: 'What you found' }),
-      el('p', {
-        class: 'text-ink-muted',
-        text: 'Everything you recorded, and what it points at.',
-      }),
+    el('div', { class: 'flex flex-col gap-2' }, [
+      el('span', { class: META, text: 'Tasting complete' }),
+      el('h1', { class: 'font-serif text-question font-normal', text: 'Your note' }),
     ]),
+    // The same card that led every question screen, finished.
+    el(
+      'section',
+      {
+        class:
+          'rounded-card border border-rule border-t-3 border-t-accent ' +
+          'bg-paper-raised px-4 py-4',
+        dataset: { role: 'note-card' },
+      },
+      [
+        el('p', { class: 'font-serif text-note' }, [
+          note || 'Nothing recorded',
+          el('span', {
+            class: 'text-ink-ghost',
+            text: note ? ' — saved as written.' : '',
+          }),
+        ]),
+      ],
+    ),
   );
 
   const readingBlock = renderReading(reading);
   if (readingBlock) screen.append(readingBlock);
 
   let phase = null;
-  const list = el('dl', { class: 'flex flex-col gap-3' });
+  const list = el('dl', { class: 'flex flex-col gap-2.5' });
   steps.forEach((step, index) => {
     const answered = state.answers[step.question.code];
     if (!answered) return;
     if (step.phase !== phase) {
       phase = step.phase;
-      list.append(
-        el('dt', {
-          class: 'mt-3 font-sans text-meta tracking-eyebrow text-accent uppercase',
-          text: step.phaseLabel,
-        }),
-      );
+      list.append(el('dt', { class: `${META} mt-3`, text: step.phaseLabel }));
     }
     list.append(
-      el('dd', { class: 'flex items-baseline gap-3 border-b border-rule pb-2' }, [
+      el('dd', { class: 'flex items-baseline gap-3 border-b border-rule pb-2.5' }, [
         el('span', {
-          class: 'flex-1 font-sans text-caption text-ink-muted',
+          class: `${META} w-20 shrink-0`,
           text: step.question.short || step.question.prompt,
         }),
         el('span', {
-          class: answered.skipped ? 'text-ink-muted italic' : '',
+          class: answered.skipped
+            ? 'flex-1 font-sans text-body text-ink-disabled'
+            : 'flex-1 font-sans text-body',
           text: answered.skipped
-            ? 'Skipped'
+            ? 'Not recorded'
             : answered.values.map((v) => labelFor(step.question.code, v)).join(', '),
         }),
         // Every line is a way back to the question that produced it. Reaching
@@ -603,7 +845,7 @@ export function renderSummary({ steps, state, reading, labelFor, handlers }) {
         // through the ones you were happy with.
         el('button', {
           type: 'button',
-          class: 'cursor-pointer font-sans text-caption text-ink-muted underline',
+          class: 'cursor-pointer font-sans text-fact text-ink-muted underline',
           dataset: { action: 'edit', question: step.question.code },
           'aria-label': `Change your answer to: ${step.question.prompt}`,
           text: 'Change',
@@ -618,7 +860,8 @@ export function renderSummary({ steps, state, reading, labelFor, handlers }) {
     const grape = el('input', {
       type: 'text',
       id: 'actual-grape',
-      class: 'rounded-card border border-rule bg-paper-raised px-4 py-3 font-sans',
+      class:
+        'rounded-control border border-rule bg-paper-raised px-4 py-3 font-sans text-body',
       placeholder: 'Optional',
       value: state.actual.grape,
       oninput: (e) => handlers.onReveal({ grape: e.target.value }),
@@ -630,35 +873,37 @@ export function renderSummary({ steps, state, reading, labelFor, handlers }) {
           class:
             'flex flex-col gap-2 rounded-card border border-rule bg-paper-raised p-4',
         },
-        [
-          el('label', {
-            class: 'font-sans text-meta tracking-widest text-ink-muted uppercase',
-            for: 'actual-grape',
-            text: 'What was it really?',
-          }),
-          grape,
-        ],
+        [el('label', { class: META, for: 'actual-grape', text: 'What was it really?' }), grape],
       ),
     );
   }
 
   screen.append(
-    el('div', { class: 'flex flex-wrap items-center gap-3' }, [
-      el('button', {
-        type: 'button',
-        class: SECONDARY,
-        dataset: { action: 'back' },
-        text: '← Back to the questions',
-        onclick: handlers.onBack,
-      }),
-      el('button', {
-        type: 'button',
-        class: `${PRIMARY} ms-auto`,
-        dataset: { action: 'save' },
-        text: 'Save to journal',
-        onclick: handlers.onSave,
-      }),
-    ]),
+    el(
+      'div',
+      {
+        class:
+          '-mx-4 mt-auto flex items-center gap-2.5 border-t border-rule bg-bar ' +
+          'px-4 pt-3.5 pb-6 sm:-mx-6 sm:px-6',
+      },
+      [
+        el('button', {
+          type: 'button',
+          class: SECONDARY,
+          dataset: { action: 'back' },
+          text: '←',
+          'aria-label': 'Back to the questions',
+          onclick: handlers.onBack,
+        }),
+        el('button', {
+          type: 'button',
+          class: PRIMARY,
+          dataset: { action: 'save' },
+          text: 'Save to journal',
+          onclick: handlers.onSave,
+        }),
+      ],
+    ),
   );
   return screen;
 }

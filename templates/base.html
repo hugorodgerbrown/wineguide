@@ -91,7 +91,10 @@ JavaScript has not run.
                 <span>{% translate "Dark mode" %}</span>
             </button>
         </header>
-        <main id="main" class="mx-auto w-full max-w-measure flex-1 px-6 py-16">
+        <main
+            id="main"
+            class="{% block main_class %}mx-auto w-full max-w-measure flex-1 px-4 py-10 sm:px-6{% endblock main_class %}"
+        >
             {% block content %}{% endblock content %}
         </main>
         <footer class="border-t border-rule px-6 py-4 text-center font-sans text-caption text-ink-muted">

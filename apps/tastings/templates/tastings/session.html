@@ -15,6 +15,7 @@ journal, which works either way.
 {% block page_meta %}
     {% include "includes/_page_meta.html" with title=_("Tasting") description=_("A guided run through the four phases.") %}
 {% endblock page_meta %}
+{% block main_class %}mx-auto flex w-full max-w-measure flex-1 flex-col px-4 pt-4 sm:px-6{% endblock main_class %}
 {% block content %}
     {{ bootstrap|json_script:"session-bootstrap" }}
     <noscript>
@@ -27,7 +28,9 @@ journal, which works either way.
     {# flex-1 rather than a viewport fraction: <main> is already the flexing #}
     {# child of a full-height column, so this fills whatever is left and the #}
     {# action row lands at the bottom, in thumb reach (PRD §7). #}
-    <div id="session-app" class="flex flex-1 flex-col"></div>
+    {# bg-tint is the wine's own paper: data-wine is set on this element by #}
+    {# the controller, so the whole session takes the style's palette. #}
+    <div id="session-app" class="flex flex-1 flex-col bg-tint"></div>
 {% endblock content %}
 {% block extra_js %}
     <script type="module" src="{% static 'js/session/session.js' %}?v={{ RELEASE_VERSION }}"></script>

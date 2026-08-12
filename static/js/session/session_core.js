@@ -22,6 +22,15 @@
  * shaped.
  */
 
+/**
+ * The deduction phase, which the note sentence leaves out.
+ *
+ * A string rather than an import: the client is handed its phases by the
+ * server and has no enum of its own, and this is the one place the difference
+ * between describing and deducing matters to the client.
+ */
+export const PHASE_CONCLUDE = 'conclude';
+
 export const STATUS = {
   IN_PROGRESS: 'in_progress',
   COMPLETED: 'completed',
@@ -416,6 +425,60 @@ export function questionStates(steps, state) {
       startsPhase: index === 0 || steps[index - 1].phase !== step.phase,
     };
   });
+}
+
+/**
+ * The tasting note as far as it has been written.
+ *
+ * The design's centrepiece: rather than a list of stored answers, the screen
+ * shows the sentence the taster is composing — "Clear, medium, ruby…" — and
+ * it grows as they go. It is the same data the summary holds, read as prose
+ * instead of as a form, and it is what makes the session feel like writing a
+ * note rather than filling in a questionnaire.
+ *
+ * Composed from the option LABELS in step order, lower-cased and joined, with
+ * the first letter raised. Lower-casing matters: labels are written to sit at
+ * the head of a chip ("Clear", "Medium"), and dropped mid-sentence unchanged
+ * they read as a list of proper nouns.
+ *
+ * Skipped questions contribute nothing — a note does not say "and I was not
+ * sure about the clarity".
+ *
+ * The Conclude phase is left out. Look, Smell and Taste are what the taster
+ * observed, and they read as a note: "Clear, medium, lemon, clean, brioche,
+ * dry, high". Conclude is what they deduced from it — the quality rating, the
+ * grape guess, how sure they are — and folding "very good, riesling,
+ * guessing" onto the end turns a description into a shopping list.
+ *
+ * @param {Array<object>} steps
+ * @param {object} state
+ * @returns {string} The sentence so far, or '' when nothing is recorded.
+ */
+export function noteSoFar(steps, state) {
+  const parts = [];
+  steps.forEach((step) => {
+    if (step.phase === PHASE_CONCLUDE) return;
+    const answered = state.answers[step.question.code];
+    if (!answered || answered.skipped || !answered.values.length) return;
+    const options = step.question.options || [];
+    answered.values.forEach((code) => {
+      for (const option of options) {
+        if (option.code === code) {
+          parts.push(option.label.toLowerCase());
+          return;
+        }
+        const child = (option.children || []).find((c) => c.code === code);
+        if (child) {
+          parts.push(child.label.toLowerCase());
+          return;
+        }
+      }
+    });
+  });
+
+  if (!parts.length) return '';
+  const sentence = parts.join(', ');
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
 /**

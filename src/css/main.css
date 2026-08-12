@@ -6,6 +6,20 @@
  *     npm run build:css     # once
  *     npm run watch:css     # while working
  *
+ * The palette, type scale, spacing and shape come from the Claude Design
+ * project "Wine Tasting Guide Design Directions"
+ * (86d6c49a-efce-4228-9d39-1cdb15424e6d), ui_kits/tasting-app. Two deliberate
+ * departures from that source, both recorded here so nobody has to guess:
+ *
+ *   * **System fonts, not Google Fonts.** The design specifies Source Serif 4,
+ *     DM Sans and DM Mono via a CDN import. The session page is precached to
+ *     run offline (PRD §8), and a CDN font would be the one thing on it that
+ *     is not there in a cellar. The three ROLES are kept exactly — serif for
+ *     questions and answers, sans for body and controls, mono for meta — with
+ *     system stacks behind them. Sizes, weights and tracking are the spec's.
+ *   * **Dark counterparts.** The design is light-only. The app has a working
+ *     theme toggle, so every wine theme below has a dark twin.
+ *
  * Everything visual belongs in a token here and a utility class in the
  * template. Do NOT add layout or spacing rules to this file — if you are
  * reaching for flex, grid, padding or margin, use a utility instead. Rules
@@ -20,57 +34,188 @@
 
 @import "tailwindcss";
 
+/* Force the depth-ramp utilities into the bundle. A scale question builds its
+   swatch class at runtime — `bg-depth-${rung}` — which Tailwind's static
+   scanner cannot see, so without this the ramp silently renders as no
+   background at all and every rung looks identical. */
+@source inline("bg-depth-{1,2,3}");
+
 /* ———————————————————————————————————————————
    1. DESIGN TOKENS
    ———————————————————————————————————————————
    `static` so every token reaches the stylesheet whether or not a utility
-   currently references it. The theme overrides in section 2 reassign these
-   variables at runtime, which only works if they were emitted in the first
-   place — without `static`, adding a dark-mode value for a token no template
-   happens to use yet produces a variable that resolves to nothing. */
+   currently references it. The theme overrides in sections 2 and 3 reassign
+   these variables at runtime, which only works if they were emitted in the
+   first place — without `static`, adding a dark or per-wine value for a token
+   no template happens to use yet produces a variable that resolves to
+   nothing. */
 
 @theme static {
-  /* Fonts. The serif carries body copy, the sans carries UI chrome —
-     labels, buttons, the footer. */
+  /* Fonts. Three roles, from the design: the serif carries the question and
+     the answers (the words the taster is reading and choosing), the sans
+     carries body copy and controls, and the mono carries meta — the small
+     tracked uppercase labels and counters. */
   --font-serif: ui-serif, Georgia, "Times New Roman", serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Type scale. The gaps Tailwind's default ramp leaves for this design,
-     named for the thing they size rather than their measurement. */
-  --text-display: clamp(2rem, 6vw, 3rem); /* hero heading            */
-  --text-display--line-height: 1.1;
-  --text-body: 1.0625rem; /* prose body              */
-  --text-body--line-height: 1.6;
-  --text-fact: 0.9375rem; /* fact-list value         */
-  --text-caption: 0.8125rem; /* footer, toggle, button  */
-  --text-meta: 0.6875rem; /* uppercase label         */
+  /* Type scale, from the design's tokens/typography.css. Named for the thing
+     they size rather than their measurement. */
+  --text-question: 2.125rem; /* 34px — the only type above 24px in a session */
+  --text-question--line-height: 1.1;
+  --text-question--letter-spacing: -0.015em;
+  --text-answer: 1.4375rem; /* 23px — answer label inside an option row */
+  --text-answer--line-height: 1.2;
+  --text-note: 1.1875rem; /* 19px — the note prose being composed        */
+  --text-note--line-height: 1.45;
+  --text-body: 0.9375rem; /* 15px — body and guidance                    */
+  --text-body--line-height: 1.55;
+  --text-fact: 0.8125rem; /* 13px — option descriptions, small print     */
+  --text-fact--line-height: 1.5;
+  --text-control: 1.0625rem; /* 17px — button labels                     */
+  --text-caption: 0.875rem; /* 14px — links, secondary controls          */
+  --text-meta: 0.625rem; /* 10px — mono uppercase label                  */
+  --text-meta-lg: 0.6875rem; /* 11px — the same, where it leads a screen */
 
+  --tracking-meta: 0.14em;
   --tracking-eyebrow: 0.14em;
 
-  /* Colours. Light values; section 2 flips them.
+  /* Colours. Warm neutrals throughout — never a cool grey. Light values
+     here; section 3 flips them for dark.
        ink            body copy
-       ink-muted      secondary copy, labels
+       ink-muted      secondary copy, guidance
+       ink-faint      meta labels, counters
+       ink-disabled   an answer not recorded
+       ink-ghost      the unwritten half of the note sentence
        paper          page background
-       paper-raised   card surfaces sitting on paper
-       rule           hairlines and borders
-       accent         the one colour that carries emphasis
-       accent-contrast  copy placed on accent */
-  --color-ink: #241c22;
-  --color-ink-muted: #6b5f66;
-  --color-paper: #fbf8f5;
+       paper-raised   card surfaces
+       paper-sunken   an option not yet chosen
+       rule           hairlines; rule-strong for borders that must read */
+  --color-ink: #1a1916;
+  --color-ink-muted: #6b6860;
+  --color-ink-faint: #6e6b65;
+  --color-ink-disabled: #a8a49c;
+  --color-ink-ghost: #c9c4bb;
+  --color-paper: #f2f0ec;
   --color-paper-raised: #ffffff;
-  --color-rule: #e3dbd4;
-  --color-accent: #7b1e3c;
-  --color-accent-contrast: #ffffff;
+  --color-paper-sunken: #fbfaf8;
+  --color-rule: rgba(0, 0, 0, 0.09);
+  --color-rule-strong: rgba(0, 0, 0, 0.16);
 
-  --radius-card: 4px;
+  /* Set per wine style in section 2; these are the still-red defaults so a
+     page outside a session still has an accent. */
+  --color-accent: #7b1e37;
+  --color-accent-quiet: #c79aa4;
+  --color-accent-contrast: #ffffff;
+  --color-tint: #f3efec;
+  --color-bar: #faf7f6;
+  --color-depth-1: #cf9aa4;
+  --color-depth-2: #a53f56;
+  --color-depth-3: #631224;
+
+  /* Shape. Cards are generously round, controls less so, and nothing casts a
+     shadow — warm hairlines on warm paper do all the separating. */
+  --radius-card: 16px;
+  --radius-control: 8px;
 
   /* Reading measure — `max-w-measure` on the main column. */
-  --container-measure: 34rem;
+  --container-measure: 40rem;
 }
 
 /* ———————————————————————————————————————————
-   2. THEME OVERRIDES
+   2. WINE THEMES
+   ———————————————————————————————————————————
+   One palette per wine style, from the design's tokens/wine-themes.css. The
+   style chosen at setup themes the whole session: the accent on every call to
+   action, the rule above the note card, the progress dots, the hint icon, the
+   paper tint and the action bar.
+
+   The three-step depth ramp is the part that earns its keep — a scale
+   question renders its rungs as graded swatches in the wine's own colour, so
+   "pale / medium / deep" is shown as well as named.
+
+   Each theme declares its accent twice, light and dark, and section 3 swaps
+   which one is in use. That keeps the dark story to two rules instead of ten,
+   and keeps both values for a colour on the same line of the same block,
+   where a reader can compare them.
+
+   The depth ramp deliberately does NOT have a dark variant. It stands for the
+   colour of the wine in the glass, and a Barolo is not lighter because the
+   phone is in dark mode. The swatches carry a hairline so the deepest rung
+   still reads against a dark card.
+
+   Applied with data-wine="…" on an ancestor, which the session controller
+   sets from the style being tasted. */
+
+[data-wine="still_red"] {
+  --accent-light: #7b1e37;
+  --accent-dark: #e08a9f;
+  --accent-quiet-light: #c79aa4;
+  --accent-quiet-dark: #8c5a66;
+  --color-tint: #f3efec;
+  --color-bar: #faf7f6;
+  --color-depth-1: #cf9aa4;
+  --color-depth-2: #a53f56;
+  --color-depth-3: #631224;
+}
+
+[data-wine="still_white"] {
+  --accent-light: #8a6f21;
+  --accent-dark: #d9c274;
+  --accent-quiet-light: #c8b877;
+  --accent-quiet-dark: #7d7248;
+  --color-tint: #f4f2ea;
+  --color-bar: #faf8f1;
+  --color-depth-1: #f2e8c4;
+  --color-depth-2: #e6d288;
+  --color-depth-3: #cfae4a;
+}
+
+[data-wine="rose"] {
+  --accent-light: #a8506a;
+  --accent-dark: #e79fb2;
+  --accent-quiet-light: #dda9b6;
+  --accent-quiet-dark: #96636f;
+  --color-tint: #f5efee;
+  --color-bar: #fbf6f5;
+  --color-depth-1: #f6dcdd;
+  --color-depth-2: #eeb3b8;
+  --color-depth-3: #d97f8c;
+}
+
+[data-wine="sparkling"] {
+  --accent-light: #6f6a3a;
+  --accent-dark: #ccc48f;
+  --accent-quiet-light: #ddd6ad;
+  --accent-quiet-dark: #7b7659;
+  --color-tint: #f1f2ee;
+  --color-bar: #f8f9f4;
+  --color-depth-1: #f6efd8;
+  --color-depth-2: #ecdfb4;
+  --color-depth-3: #dcc987;
+}
+
+[data-wine="fortified"] {
+  --accent-light: #6b3b1f;
+  --accent-dark: #d3a077;
+  --accent-quiet-light: #c7a184;
+  --accent-quiet-dark: #8a6650;
+  --color-tint: #f3efe9;
+  --color-bar: #faf6f1;
+  --color-depth-1: #e3c39a;
+  --color-depth-2: #c2793f;
+  --color-depth-3: #7a3a17;
+}
+
+/* Every theme resolves through the same two variables, so the dark rules in
+   section 3 only have to swap which pair is live. */
+[data-wine] {
+  --color-accent: var(--accent-light);
+  --color-accent-quiet: var(--accent-quiet-light);
+}
+
+/* ———————————————————————————————————————————
+   3. DARK
    ———————————————————————————————————————————
    Three layers, and the order matters. Section 1 is the light default; the
    media query flips it for a reader whose OS asks for dark; the [data-theme]
@@ -81,42 +226,70 @@
    Utilities generated from @theme reference the variables rather than
    inlining their values, so reassigning a variable here re-themes every
    utility that uses it. There are no dark: variants anywhere in the
-   templates, and there should not be — the palette is the theme. */
+   templates, and there should not be — the palette is the theme.
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-ink: #f2ece8;
-    --color-ink-muted: #a99ea5;
-    --color-paper: #171316;
-    --color-paper-raised: #211b20;
-    --color-rule: #3a3138;
-    --color-accent: #e0879f;
-    --color-accent-contrast: #171316;
-  }
-}
-
-:root[data-theme="light"] {
-  --color-ink: #241c22;
-  --color-ink-muted: #6b5f66;
-  --color-paper: #fbf8f5;
-  --color-paper-raised: #ffffff;
-  --color-rule: #e3dbd4;
-  --color-accent: #7b1e3c;
-  --color-accent-contrast: #ffffff;
-}
+   The two surface tints collapse onto the ordinary dark surfaces: a warm
+   paper tint is a light-paper idea, and tinting a near-black background just
+   makes it muddy. */
 
 :root[data-theme="dark"] {
   --color-ink: #f2ece8;
   --color-ink-muted: #a99ea5;
+  --color-ink-faint: #9a9198;
+  --color-ink-disabled: #6b636a;
+  --color-ink-ghost: #574f56;
   --color-paper: #171316;
   --color-paper-raised: #211b20;
-  --color-rule: #3a3138;
-  --color-accent: #e0879f;
+  --color-paper-sunken: #1d181c;
+  --color-rule: rgba(255, 255, 255, 0.11);
+  --color-rule-strong: rgba(255, 255, 255, 0.2);
+  --color-accent: var(--accent-dark, #e08a9f);
+  --color-accent-quiet: var(--accent-quiet-dark, #8c5a66);
   --color-accent-contrast: #171316;
+  --color-tint: #171316;
+  --color-bar: #211b20;
+}
+
+/* The per-wine blocks set tint and bar on a DESCENDANT of :root, so they
+   outrank anything the root-level dark rule says about them. Every surface
+   the wine themes has to be restated here or it keeps its light value on a
+   dark page — which is how the action bar stayed cream. */
+:root[data-theme="dark"] [data-wine] {
+  --color-accent: var(--accent-dark);
+  --color-accent-quiet: var(--accent-quiet-dark);
+  --color-tint: #171316;
+  --color-bar: #211b20;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-ink: #f2ece8;
+    --color-ink-muted: #a99ea5;
+    --color-ink-faint: #9a9198;
+    --color-ink-disabled: #6b636a;
+    --color-ink-ghost: #574f56;
+    --color-paper: #171316;
+    --color-paper-raised: #211b20;
+    --color-paper-sunken: #1d181c;
+    --color-rule: rgba(255, 255, 255, 0.11);
+    --color-rule-strong: rgba(255, 255, 255, 0.2);
+    --color-accent: var(--accent-dark, #e08a9f);
+    --color-accent-quiet: var(--accent-quiet-dark, #8c5a66);
+    --color-accent-contrast: #171316;
+    --color-tint: #171316;
+    --color-bar: #211b20;
+  }
+
+  :root:not([data-theme="light"]) [data-wine] {
+    --color-accent: var(--accent-dark);
+    --color-accent-quiet: var(--accent-quiet-dark);
+    --color-tint: #171316;
+    --color-bar: #211b20;
+  }
 }
 
 /* ———————————————————————————————————————————
-   3. COMPONENT EXCEPTIONS
+   4. COMPONENT EXCEPTIONS
    ———————————————————————————————————————————
    Only what a utility cannot express. Each rule needs a reason. */
 

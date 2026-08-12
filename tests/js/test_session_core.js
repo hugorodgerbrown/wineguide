@@ -20,6 +20,7 @@ import {
   isFinished,
   isOverBudget,
   next,
+  noteSoFar,
   pause,
   phaseElapsedMs,
   previous,
@@ -560,5 +561,98 @@ describe('allAnswered', () => {
     state = answer(STEPS, next(STEPS, state, at(6)), 'ruby', at(7));
     state = skip(STEPS, next(STEPS, state, at(8)), at(9));
     expect(allAnswered(STEPS, state)).toBe(true);
+  });
+});
+
+describe('noteSoFar', () => {
+  it('is empty before anything is recorded', () => {
+    expect(noteSoFar(STEPS, fresh())).toBe('');
+  });
+
+  it('composes a sentence from the labels, in step order', () => {
+    // The design's centrepiece: the session reads as writing a note rather
+    // than filling in a form.
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = answer(STEPS, next(STEPS, state, at(6)), 'ruby', at(7));
+    expect(noteSoFar(STEPS, state)).toBe('Clear, ruby');
+  });
+
+  it('lower-cases the labels and raises only the first letter', () => {
+    // Labels are written to head a chip ("Clear"); dropped mid-sentence
+    // unchanged they read as a list of proper nouns.
+    let state = answer(STEPS, fresh(), 'clear', at(5));
+    state = answer(STEPS, next(STEPS, state, at(6)), 'ruby', at(7));
+    expect(noteSoFar(STEPS, state)).not.toContain('Ruby');
+  });
+
+  it('follows step order rather than the order they were answered', () => {
+    let state = answer(STEPS, fresh({ cursor: 1 }), 'ruby', at(5));
+    state = answer(STEPS, goTo(STEPS, state, 0, at(6)), 'clear', at(7));
+    expect(noteSoFar(STEPS, state)).toBe('Clear, ruby');
+  });
+
+  it('includes every pick of a multi-select', () => {
+    const state = answer(
+      STEPS,
+      answer(STEPS, fresh({ cursor: 2 }), 'lemon', at(5)),
+      'lime',
+      at(6),
+    );
+    expect(noteSoFar(STEPS, state)).toBe('Lemon, lime');
+  });
+
+  it('resolves a nested descriptor by its own label', () => {
+    const state = answer(STEPS, fresh({ cursor: 2 }), 'lemon', at(5));
+    expect(noteSoFar(STEPS, state)).toBe('Lemon');
+  });
+
+  it('leaves out a skipped question', () => {
+    // A note does not say "and I was not sure about the clarity".
+    let state = skip(STEPS, fresh(), at(5));
+    state = answer(STEPS, next(STEPS, state, at(6)), 'ruby', at(7));
+    expect(noteSoFar(STEPS, state)).toBe('Ruby');
+  });
+
+  it('leaves out the conclude phase', () => {
+    // Look, Smell and Taste are what you observed and read as a note.
+    // Conclude is what you deduced, and folding "very good, riesling,
+    // guessing" onto the end turns a description into a shopping list.
+    const steps = buildSteps({
+      phases: [
+        {
+          code: 'look',
+          label: 'Look',
+          seconds: 45,
+          questions: [
+            {
+              code: 'clarity',
+              prompt: 'Clear?',
+              short: 'Clarity',
+              control: 'single',
+              options: [{ code: 'clear', label: 'Clear', children: [] }],
+            },
+          ],
+        },
+        {
+          code: 'conclude',
+          label: 'Conclude',
+          seconds: 90,
+          questions: [
+            {
+              code: 'quality',
+              prompt: 'How good?',
+              short: 'Quality',
+              control: 'scale',
+              options: [{ code: 'very_good', label: 'Very good', children: [] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    let state = answer(steps, fresh(), 'clear', at(5));
+    state = answer(steps, next(steps, state, at(6)), 'very_good', at(7));
+
+    expect(noteSoFar(steps, state)).toBe('Clear');
   });
 });

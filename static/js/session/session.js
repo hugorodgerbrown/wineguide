@@ -116,6 +116,10 @@ export async function startSessionApp({
   let steps = [];
   let payload = null;
   let state = null;
+  // Screen-local, not session state: whether the "why it matters" sheet is
+  // open is not something worth persisting or syncing, and it should not
+  // survive moving to another question.
+  let rubricOpen = false;
 
   /** Persistence, or a no-op when the database would not open. */
   const store = {
@@ -175,12 +179,25 @@ export async function startSessionApp({
 
   const handlers = {
     onAnswer: (code) => commit(answer(steps, state, code, now())),
-    onNext: () => commit(next(steps, state, now())),
-    onBack: () => commit(previous(steps, state, now())),
+    onNext: () => {
+      rubricOpen = false;
+      commit(next(steps, state, now()));
+    },
+    onBack: () => {
+      rubricOpen = false;
+      commit(previous(steps, state, now()));
+    },
     // Direct jumps from the phase rail, the question rail, and every line of
     // the summary. Moving around the session should not mean stepping through
     // answers you were happy with.
-    onJump: (index) => commit(goTo(steps, state, index, now())),
+    onJump: (index) => {
+      rubricOpen = false;
+      commit(goTo(steps, state, index, now()));
+    },
+    onRubric: () => {
+      rubricOpen = !rubricOpen;
+      render();
+    },
     // The summary is reachable once everything is answered, without walking
     // off the end of the last phase.
     onReview: () => commit(goTo(steps, state, steps.length, now())),
@@ -203,6 +220,12 @@ export async function startSessionApp({
   };
 
   function render() {
+    // The wine themes the whole session — accent, paper tint, action bar and
+    // the depth ramp the scale swatches are drawn from. One attribute, and
+    // every token below it changes.
+    if (state) mount.dataset.wine = state.wineType;
+    else delete mount.dataset.wine;
+
     const screen = renderScreen();
     // The warning sits above whatever screen follows and is repainted with
     // it, because it stays true for the whole session.
@@ -225,7 +248,7 @@ export async function startSessionApp({
         handlers,
       });
     }
-    return renderQuestion({ steps, state, now: now(), handlers });
+    return renderQuestion({ steps, state, now: now(), rubricOpen, handlers });
   }
 
   async function begin(wineType, wine) {
