@@ -220,10 +220,10 @@ export function renderStorageWarning() {
  * where they were. Phase changes are a thin separator; the phase itself is
  * named under the actions, where the question count already sits.
  *
- * Answered, skipped and not-yet stay three distinct marks. "I decided I was
- * unsure" and "I have not got there yet" are different facts, and a
- * done/not-done fill collapses exactly the distinction PRD §6.1 asks the app
- * to keep.
+ * Answered and not-yet are the two marks a live session produces. The dashed
+ * `skipped` mark is still rendered because sessions recorded before the
+ * "Not sure" button was removed carry it, and a note that silently loses a
+ * line is worse than one with an unfamiliar mark.
  *
  * @param {Array<object>} steps
  * @param {object} state
@@ -339,15 +339,27 @@ export function renderQuestion({ steps, state, now, handlers }) {
   const screen = el('section', { class: 'flex min-h-full flex-col gap-5' });
 
   screen.append(
-    el('div', { class: 'flex items-start justify-between gap-4' }, [
-      renderProgressRail(steps, state, handlers.onJump),
-      el('button', {
-        type: 'button',
-        class: 'font-sans text-caption text-ink-muted underline cursor-pointer',
-        dataset: { action: state.paused ? 'resume' : 'pause' },
-        text: state.paused ? 'Resume' : 'Pause',
-        onclick: state.paused ? handlers.onResume : handlers.onPause,
+    // Where you are, above the rail rather than under the actions: the
+    // caption labels the markers, so the two are one block and read
+    // top-down — phase and position, then the markers, then the question.
+    // Grouped in their own column so the screen's gap does not push them
+    // apart into unrelated things.
+    el('div', { class: 'flex flex-col gap-2' }, [
+      el('p', {
+        class: 'font-sans text-meta tracking-widest text-ink-muted uppercase',
+        dataset: { role: 'position' },
+        text: `${step.phaseLabel} · question ${p.step} of ${p.total}`,
       }),
+      el('div', { class: 'flex items-start justify-between gap-4' }, [
+        renderProgressRail(steps, state, handlers.onJump),
+        el('button', {
+          type: 'button',
+          class: 'cursor-pointer font-sans text-caption text-ink-muted underline',
+          dataset: { action: state.paused ? 'resume' : 'pause' },
+          text: state.paused ? 'Resume' : 'Pause',
+          onclick: state.paused ? handlers.onResume : handlers.onPause,
+        }),
+      ]),
     ]),
     // A meter, not a countdown. It fills, it goes accent-coloured when the
     // budget is spent, and it never does anything else — the taster advances,
@@ -434,15 +446,6 @@ export function renderQuestion({ steps, state, now, handlers }) {
     );
   }
 
-  if (answered.skipped) {
-    screen.append(
-      el('p', {
-        class: 'font-sans text-caption text-ink-muted',
-        text: 'Marked as unsure. You can come back to it.',
-      }),
-    );
-  }
-
   // Actions last, so they sit at the bottom of the screen under a thumb. Both
   // name their destination: "← Colour" tells you what you are about to see,
   // where "Back" only tells you which way you are going.
@@ -451,15 +454,19 @@ export function renderQuestion({ steps, state, now, handlers }) {
 
   screen.append(
     el('div', { class: 'mt-auto flex flex-col gap-3' }, [
-      allAnswered(steps, state) && !isFinished(steps, state)
-        ? el('button', {
-            type: 'button',
-            class: 'cursor-pointer text-start font-sans text-caption underline',
-            dataset: { action: 'review' },
-            text: 'Everything is answered — review and save',
-            onclick: handlers.onReview,
-          })
-        : null,
+      // Always reachable. It used to appear only once every question was
+      // answered, which was fine while "Not sure" existed to dispose of the
+      // ones you could not answer. Without it, a single unanswerable question
+      // would hide the way to the summary for the rest of the session.
+      el('button', {
+        type: 'button',
+        class: 'cursor-pointer text-start font-sans text-caption underline',
+        dataset: { action: 'review' },
+        text: allAnswered(steps, state)
+          ? 'Everything is answered — review and save'
+          : 'Review and save',
+        onclick: handlers.onReview,
+      }),
       el('div', { class: 'flex flex-wrap items-center gap-3' }, [
         back
           ? el('button', {
@@ -472,23 +479,12 @@ export function renderQuestion({ steps, state, now, handlers }) {
           : null,
         el('button', {
           type: 'button',
-          class: SECONDARY,
-          dataset: { action: 'skip' },
-          text: 'Not sure',
-          onclick: handlers.onSkip,
-        }),
-        el('button', {
-          type: 'button',
           class: `${PRIMARY} ms-auto`,
           dataset: { action: 'next' },
           text: forward ? `${forward.short} →` : 'Finish',
           onclick: handlers.onNext,
         }),
       ]),
-      el('p', {
-        class: 'font-sans text-meta tracking-widest text-ink-muted uppercase',
-        text: `${step.phaseLabel} · question ${p.step} of ${p.total}`,
-      }),
     ]),
   );
 

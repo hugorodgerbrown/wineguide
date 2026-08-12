@@ -30,7 +30,6 @@ import {
   previous,
   resume,
   reveal,
-  skip,
   toPayload,
 } from './session_core.js';
 import { interpret } from './session_inference.js';
@@ -176,7 +175,6 @@ export async function startSessionApp({
 
   const handlers = {
     onAnswer: (code) => commit(answer(steps, state, code, now())),
-    onSkip: () => commit(next(steps, skip(steps, state, now()), now())),
     onNext: () => commit(next(steps, state, now())),
     onBack: () => commit(previous(steps, state, now())),
     // Direct jumps from the phase rail, the question rail, and every line of
