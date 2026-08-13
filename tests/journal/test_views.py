@@ -297,6 +297,43 @@ class TestDelete:
         )
         assert TastingSession.objects.filter(pk=session.pk).exists()
 
+    def test_htmx_gets_the_list_back(
+        self, htmx_client: Client, lexicon: Lexicon
+    ) -> None:
+        """Deleting a row from the listing should leave you in the listing.
+        A redirect would work, but HTMX would swap a whole page into the
+        results container.
+        """
+        user = make_user()
+        htmx_client.force_login(user)
+        session = make_session(user, lexicon)
+
+        response = htmx_client.post(
+            reverse("journal:delete", kwargs={"uuid": session.uuid})
+        )
+
+        assert response.status_code == 200
+        assert response.templates[0].name == "journal/_results.html"
+        assert not TastingSession.objects.filter(pk=session.pk).exists()
+
+    def test_keeps_the_filters_on_the_redirect(
+        self, client: Client, lexicon: Lexicon
+    ) -> None:
+        """A delete made inside a search should not drop you back to
+        everything.
+        """
+        user = make_user()
+        client.force_login(user)
+        session = make_session(user, lexicon)
+
+        response = client.post(
+            reverse("journal:delete", kwargs={"uuid": session.uuid})
+            + "?wine_type=still_red"
+        )
+
+        assert response.status_code == 302
+        assert response["Location"].endswith("?wine_type=still_red")
+
     def test_another_taster_cannot_delete(
         self, client: Client, lexicon: Lexicon
     ) -> None:

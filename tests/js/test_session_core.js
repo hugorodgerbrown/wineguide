@@ -24,12 +24,10 @@ import {
   markReach,
   next,
   noteSoFar,
-  pause,
   phaseElapsedMs,
   previous,
   progress,
   questionStates,
-  resume,
   reveal,
   skip,
   toPayload,
@@ -158,11 +156,10 @@ describe('createSession', () => {
     expect(fresh().lexiconVersion).toBe('2026.1');
   });
 
-  it('starts on the first question, unpaused, with nothing answered', () => {
+  it('starts on the first question with nothing answered', () => {
     const state = fresh();
     expect(state.cursor).toBe(0);
     expect(state.answers).toEqual({});
-    expect(state.paused).toBe(false);
     expect(state.status).toBe(STATUS.IN_PROGRESS);
   });
 
@@ -288,31 +285,11 @@ describe('next and previous', () => {
   });
 });
 
-describe('pause and resume', () => {
-  it('banks time so a pause does not inflate the timer', () => {
-    // PRD §7: someone will refill your glass mid-session.
-    const state = pause(STEPS, fresh(), at(20));
-    expect(state.paused).toBe(true);
-    expect(state.elapsed.look).toBe(20000);
-    expect(state.phaseEnteredAt).toBeNull();
-  });
-
-  it('does not accrue time while paused', () => {
-    const state = pause(STEPS, fresh(), at(20));
-    expect(phaseElapsedMs(STEPS, state, 'look', at(300))).toBe(20000);
-  });
-
-  it('restarts the clock on resume without losing what was banked', () => {
-    let state = pause(STEPS, fresh(), at(20));
-    state = resume(state, at(300));
-    expect(state.paused).toBe(false);
-    expect(phaseElapsedMs(STEPS, state, 'look', at(310))).toBe(30000);
-  });
-
-  it('is idempotent in both directions', () => {
-    const paused = pause(STEPS, fresh(), at(20));
-    expect(pause(STEPS, paused, at(40))).toBe(paused);
-    expect(resume(fresh(), at(40))).toEqual(fresh());
+describe('no pause', () => {
+  it('carries no paused flag', () => {
+    // The mechanism is gone, not hidden. A flag left behind would be a state
+    // nothing can set and nothing can clear.
+    expect('paused' in fresh()).toBe(false);
   });
 });
 

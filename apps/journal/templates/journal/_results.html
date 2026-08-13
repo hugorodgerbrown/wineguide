@@ -17,9 +17,12 @@ HTMX filter request. Nothing in here depends on the page around it.
 {% if page.object_list %}
     <ul class="flex flex-col gap-3">
         {% for session in page.object_list %}
-            <li>
+            {# The row is the container, not the link, so the delete form can #}
+            {# sit beside the anchor — a form nested inside one is invalid, #}
+            {# and a button that is part of the link would open the note. #}
+            <li class="flex items-center rounded-card border border-rule bg-paper-raised">
                 <a
-                    class="flex items-center gap-4 rounded-card border border-rule bg-paper-raised p-4 no-underline"
+                    class="flex min-w-0 flex-1 items-center gap-4 p-4 no-underline"
                     href="{{ session.get_absolute_url }}"
                 >
                     {# The swatch is decoration beside the style, never the only signal (PRD §8). #}
@@ -41,6 +44,26 @@ HTMX filter request. Nothing in here depends on the page around it.
                         datetime="{{ session.started_at|date:'c' }}"
                     >{{ session.started_at|date:"j M Y" }}</time>
                 </a>
+                {# Posts to the same view the detail page uses. With HTMX it #}
+                {# swaps the list back in; without it, the view redirects. #}
+                <form
+                    class="shrink-0 pe-3 ps-1"
+                    method="post"
+                    action="{% url 'journal:delete' uuid=session.uuid %}?{{ request.GET.urlencode }}"
+                    hx-post="{% url 'journal:delete' uuid=session.uuid %}?{{ request.GET.urlencode }}"
+                    hx-target="#journal-results"
+                    hx-swap="innerHTML"
+                    hx-confirm="{% translate 'Delete this tasting note? This cannot be undone.' %}"
+                >
+                    {% csrf_token %}
+                    <button
+                        class="cursor-pointer rounded-control px-2 py-2 font-sans text-caption text-ink-muted"
+                        type="submit"
+                        aria-label="{% blocktranslate with name=session.display_name %}Delete {{ name }}{% endblocktranslate %}"
+                    >
+                        {% translate "Delete" %}
+                    </button>
+                </form>
             </li>
         {% endfor %}
     </ul>

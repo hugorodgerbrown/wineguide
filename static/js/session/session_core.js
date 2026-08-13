@@ -93,9 +93,8 @@ export function createSession({ payload, uuid, now, wine = {} }) {
     answers: {},
     /** Accumulated ms spent in each phase, keyed by phase code. */
     elapsed: {},
-    /** ISO time the current phase was entered, or null while paused. */
+    /** ISO time the current phase was entered, or null once it is banked. */
     phaseEnteredAt: now,
-    paused: false,
   };
 }
 
@@ -255,41 +254,15 @@ export function previous(steps, state, now) {
   };
 }
 
-/**
- * Pause the session.
- *
- * Banks the time spent so far so a pause does not inflate the phase timer.
- * PRD §7 calls this interruption-safety, and it is the difference between the
- * timer being a pacing aid and being a source of stress.
- *
- * @param {object} state
- * @param {Array<object>} steps
- * @param {string} now - ISO timestamp.
- * @returns {object} The next state.
+/*
+ * There is no pause. A session used to have a paused flag, a stop/go button
+ * in the header and a screen behind it, on the reasoning that a real tasting
+ * gets interrupted (PRD §7). It does — but nothing here is lost when it does:
+ * every tap is already durable, the session is already resumable, and the
+ * phase budget is a soft nudge that has never had any consequence. So pausing
+ * protected nothing, and it cost a control in the header and a state a taster
+ * could be stuck in with no obvious way out. Walking away is the pause.
  */
-export function pause(steps, state, now) {
-  if (state.paused) return state;
-  const step = currentStep(steps, state);
-  return {
-    ...state,
-    paused: true,
-    updatedAt: now,
-    elapsed: accrue(state, step?.phase, now),
-    phaseEnteredAt: null,
-  };
-}
-
-/**
- * Resume a paused session.
- *
- * @param {object} state
- * @param {string} now - ISO timestamp.
- * @returns {object} The next state.
- */
-export function resume(state, now) {
-  if (!state.paused) return state;
-  return { ...state, paused: false, updatedAt: now, phaseEnteredAt: now };
-}
 
 /**
  * Milliseconds spent in a phase, including the stretch currently running.
@@ -312,7 +285,7 @@ export function phaseElapsedMs(steps, state, phase, now) {
   const banked = state.elapsed[phase] || 0;
   const step = currentStep(steps, state);
   if (!step || step.phase !== phase) return banked;
-  if (state.paused || !state.phaseEnteredAt) return banked;
+  if (!state.phaseEnteredAt) return banked;
   const live = Date.parse(now) - Date.parse(state.phaseEnteredAt);
   // A device clock can jump backwards — NTP, daylight saving, a user setting
   // it by hand. A negative interval must not eat into the banked total.

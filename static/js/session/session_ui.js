@@ -620,7 +620,7 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
 
   const screen = el('section', { class: 'relative flex flex-1 flex-col' });
 
-  // Top bar: back, where you are, pause. Icon buttons at 40px, which is the
+  // Top bar: back, where you are, finish. Icon buttons at 40px, which is the
   // smallest thing on the screen and still comfortably tappable.
   screen.append(
     el('div', { class: 'flex items-center justify-between' }, [
@@ -652,13 +652,18 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
           ? el('span', { class: 'text-ink-faint', text: ' · over' })
           : null,
       ]),
+      // Out, at any point, keeping whatever has been answered. A tasting
+      // abandoned at Smell is still a note worth having, and the alternative
+      // — walking away and finding the same session waiting next time — is
+      // what made the session feel like something you were trapped in.
       el('button', {
         type: 'button',
-        class: 'flex size-10 cursor-pointer items-center justify-center font-sans text-caption text-ink-muted',
-        dataset: { action: state.paused ? 'resume' : 'pause' },
-        text: state.paused ? 'Go' : 'II',
-        'aria-label': state.paused ? 'Resume' : 'Pause',
-        onclick: state.paused ? handlers.onResume : handlers.onPause,
+        class:
+          'cursor-pointer rounded-control px-3 py-2 font-sans text-control text-ink-muted',
+        dataset: { action: 'finish' },
+        text: 'Finish',
+        'aria-label': 'Finish and save this tasting',
+        onclick: handlers.onFinish,
       }),
     ]),
   );
@@ -668,18 +673,6 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
       renderNoteCard(steps, state, handlers.onJump, handlers.onReview),
     ]),
   );
-
-  if (state.paused) {
-    screen.append(
-      el('p', {
-        class:
-          'mt-6 rounded-card border border-rule bg-paper-raised p-6 text-center font-sans text-body text-ink-muted',
-        role: 'status',
-        text: 'Paused. Nothing is lost — pick it up when you are ready.',
-      }),
-    );
-    return screen;
-  }
 
   // The question, its eyebrow, and the instruction that teaches it.
   screen.append(

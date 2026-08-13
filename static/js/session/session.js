@@ -26,9 +26,7 @@ import {
   goTo,
   isFinished,
   next,
-  pause,
   previous,
-  resume,
   reveal,
   toPayload,
 } from './session_core.js';
@@ -201,8 +199,10 @@ export async function startSessionApp({
     // The summary is reachable once everything is answered, without walking
     // off the end of the last phase.
     onReview: () => commit(goTo(steps, state, steps.length, now())),
-    onPause: () => commit(pause(steps, state, now())),
-    onResume: () => commit(resume(state, now())),
+    // Finish where you stand. Same path as saving from the summary, so a
+    // half-finished tasting is stored exactly like a complete one — the
+    // journal already distinguishes them by what was answered.
+    onFinish: () => handlers.onSave(),
     onReveal: (actual) => {
       state = reveal(state, { ...state.actual, ...actual }, now());
       store.save(state);
@@ -282,8 +282,10 @@ export async function startSessionApp({
   }
 
   // Resume rather than restart. Someone who closed the tab mid-phase should
-  // find the session where they left it (PRD §6.2, §7).
-  const unfinished = await store.latestUnfinished();
+  // find the session where they left it (PRD §6.2, §7) — unless they arrived
+  // by asking for a new tasting, in which case resuming is the app ignoring
+  // what they just clicked.
+  const unfinished = bootstrap.resume === false ? null : await store.latestUnfinished();
   if (unfinished) {
     const cached = (await store.loadLexicon(unfinished.wineType)) || {
       phases: [],

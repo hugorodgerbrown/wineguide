@@ -1,25 +1,117 @@
 {% extends "base.html" %}
 {% comment %}
-apps/public/templates/public/home.html — The homepage.
+apps/public/templates/public/home.html — The landing page.
 
-Also the full-page response from ``wine_pick`` when the request did not come
-from HTMX, which is what makes the "another one" control work as an ordinary
-link with JavaScript switched off.
+Addressed to someone who wants to get better at tasting, not to someone
+shopping for a bottle. The page has one job: say what the app teaches and how,
+concretely enough that the difference from a note-taking app is obvious before
+anyone signs in.
+
+Plain HTML — no HTMX, no script. Everything here is a link.
 {% endcomment %}
 {% load i18n %}
 {% block page_meta %}
-    {% include "includes/_page_meta.html" with title=SITE_NAME description=_("A short, opinionated guide to bottles worth drinking.") %}
+    {% include "includes/_page_meta.html" with title=_("Learn to taste like a sommelier") description=_("A guided companion for the four-phase tasting method. It teaches you how to tell, and draws the conclusions for you.") %}
 {% endblock page_meta %}
 {% block content %}
-    <section>
-        <p class="mb-2 font-sans text-meta font-semibold tracking-eyebrow text-accent uppercase">
+    <section class="mb-16">
+        <p class="mb-3 font-sans text-meta font-semibold tracking-eyebrow text-accent uppercase">
             {% translate "Wineguide" %}
         </p>
-        <h1 class="mb-4 text-display font-medium">{% translate "Bottles worth drinking." %}</h1>
-        <p class="text-lg text-ink-muted">
-            {% blocktranslate %}No scores out of a hundred, no tasting-note bingo. One wine at a time, and why it is
-                worth your evening.{% endblocktranslate %}
+        <h1 class="mb-5 font-serif text-display font-normal text-pretty">
+            {% translate "Learn to taste like a sommelier." %}
+        </h1>
+        <p class="mb-8 max-w-measure font-sans text-note text-ink-muted text-pretty">
+            {% blocktranslate %}A guided companion for the four-phase method, built for the glass in front of you. One
+                question at a time, with the technique for answering it — not a form to fill in once you already
+                know.{% endblocktranslate %}
         </p>
+        <div class="flex flex-wrap items-center gap-4">
+            {% if user.is_authenticated %}
+                <a
+                    class="rounded-card bg-accent px-6 py-3 font-sans text-control text-accent-contrast no-underline"
+                    href="{% url 'tastings:start_new' %}"
+                >{% translate "Start a tasting" %}</a>
+                <a class="font-sans text-caption text-ink-muted" href="{% url 'journal:list' %}">
+                    {% translate "Open your journal" %}
+                </a>
+            {% else %}
+                <a
+                    class="rounded-card bg-accent px-6 py-3 font-sans text-control text-accent-contrast no-underline"
+                    href="{% url 'accounts:sign_in' %}"
+                >{% translate "Start a tasting" %}</a>
+                <span class="font-sans text-caption text-ink-muted">
+                    {% translate "No password. We send you a link." %}
+                </span>
+            {% endif %}
+        </div>
     </section>
-    {% include "public/_wine_panel.html" %}
+
+    <section class="mb-16">
+        <h2 class="mb-6 font-sans text-meta font-semibold tracking-eyebrow text-ink-faint uppercase">
+            {% translate "The sequence" %}
+        </h2>
+        <ol class="flex flex-col gap-3">
+            {% for phase in phases %}
+                <li class="flex gap-4 rounded-card border border-rule bg-paper-raised p-5">
+                    <span
+                        class="shrink-0 font-mono text-meta tracking-widest text-ink-faint"
+                        aria-hidden="true"
+                    >{{ forloop.counter|stringformat:"02d" }}</span>
+                    <span>
+                        <span class="block font-serif text-answer">{{ phase.label }}</span>
+                        <span class="mt-1 block font-sans text-body text-ink-muted">{{ phase.blurb }}</span>
+                    </span>
+                </li>
+            {% endfor %}
+        </ol>
+    </section>
+
+    <section class="mb-16">
+        <h2 class="mb-6 font-sans text-meta font-semibold tracking-eyebrow text-ink-faint uppercase">
+            {% translate "What makes it teach" %}
+        </h2>
+        <div class="flex flex-col gap-6">
+            <div>
+                <h3 class="mb-2 font-serif text-answer">{% translate "It tells you how to tell." %}</h3>
+                <p class="max-w-measure font-sans text-body text-ink-muted text-pretty">
+                    {% blocktranslate %}Nobody is born knowing the difference between medium and high acidity. So every
+                        answer carries the technique: swallow, close your mouth, and count how long you keep watering.
+                        Tannin is a dry drag on the gums, not a taste. Body is the milk test — skimmed, semi-skimmed
+                        or double cream.{% endblocktranslate %}
+                </p>
+            </div>
+            <div>
+                <h3 class="mb-2 font-serif text-answer">{% translate "You describe. It deduces." %}</h3>
+                <p class="max-w-measure font-sans text-body text-ink-muted text-pretty">
+                    {% blocktranslate %}You are never asked whether the wine went through malolactic conversion — that
+                        is the thing you came to learn. You record what you can actually smell, and the app names the
+                        process: brioche means time on the lees, butter means malolactic, banana means carbonic
+                        maceration. It shows its working, so next time you know.{% endblocktranslate %}
+                </p>
+            </div>
+            <div>
+                <h3 class="mb-2 font-serif text-answer">{% translate "It keeps up with the room." %}</h3>
+                <p class="max-w-measure font-sans text-body text-ink-muted text-pretty">
+                    {% blocktranslate %}Every tap is saved on your phone before it is sent anywhere, so a cellar with no
+                        signal changes nothing. Finish a tasting whenever you like — a note that stops at Smell is
+                        still a note worth keeping.{% endblocktranslate %}
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="mb-3 font-serif text-question font-normal text-pretty">
+            {% translate "Then read yourself back." %}
+        </h2>
+        <p class="mb-6 max-w-measure font-sans text-body text-ink-muted text-pretty">
+            {% blocktranslate %}Every tasting lands in a journal you can search by grape, style, region or what you made
+                of it. Taste blind, guess, and find out later whether you were right.{% endblocktranslate %}
+        </p>
+        <a
+            class="inline-block rounded-card bg-accent px-6 py-3 font-sans text-control text-accent-contrast no-underline"
+            href="{% if user.is_authenticated %}{% url 'tastings:start_new' %}{% else %}{% url 'accounts:sign_in' %}{% endif %}"
+        >{% translate "Start a tasting" %}</a>
+    </section>
 {% endblock content %}

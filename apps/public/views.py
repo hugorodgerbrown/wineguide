@@ -1,53 +1,58 @@
 """
-apps/public/views.py — Public site views.
+apps/public/views.py — The landing page.
 
-``home`` renders the homepage. ``wine_pick`` re-renders just the pick panel,
-and is the one endpoint with two response shapes: HTMX asks for the fragment
-and swaps it in place, while a plain browser request (no JS, or a bookmarked
-URL) gets the whole page back. The no-JS path is not a fallback bolted on
-afterwards — it is the same view, and the template's control is an ordinary
-link that HTMX intercepts when it is available.
+One view, one template, no JavaScript. The page is addressed to someone
+deciding whether to learn to taste, so its whole job is to say what the app
+teaches and how — the four-phase sequence, and the two things that separate it
+from a form you fill in once you already know the answers.
+
+The phase blurbs are built from `Phase` rather than written into the template,
+so the sequence advertised here cannot drift from the sequence the session
+actually runs.
 """
 
 from __future__ import annotations
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.utils.functional import Promise
+from django.utils.translation import gettext_lazy as _
 
-from .wines import wine_at
+from apps.core.enums import PHASE_ORDER, Phase
 
-PANEL_TEMPLATE = "public/_wine_panel.html"
 HOME_TEMPLATE = "public/home.html"
 
-
-def _pick_index(request: HttpRequest) -> int:
-    """Read the requested rotation index from the query string.
-
-    Anything unparseable is treated as 0 rather than a 400: the index is a
-    position in a rotation, not an identifier, so there is no such thing as a
-    "wrong" one — see ``wines.wine_at``, which wraps.
-    """
-    try:
-        return int(request.GET.get("index", 0))
-    except ValueError:
-        return 0
-
-
-def _pick_context(index: int) -> dict[str, object]:
-    """Build the context shared by the full page and the fragment."""
-    return {
-        "wine": wine_at(index),
-        "next_index": index + 1,
-    }
+#: One line per phase, keyed by the enum so a phase cannot be advertised that
+#: the session does not run — or be added to the session and go unmentioned.
+PHASE_BLURBS: dict[str, Promise] = {
+    Phase.LOOK: _(
+        "Clarity, depth and colour, against something white. The rim tells you "
+        "more than the middle."
+    ),
+    Phase.SMELL: _(
+        "How much it gives, and what of. You pick the smells you recognise; the "
+        "app works out where they came from."
+    ),
+    Phase.TASTE: _(
+        "Sweetness, acidity, tannin, alcohol, body and finish — the structure, "
+        "one sensation at a time, each with the way to feel for it."
+    ),
+    Phase.CONCLUDE: _(
+        "How good, how ready, and your guess at the grape. Say how sure you "
+        "are, then find out."
+    ),
+}
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    """Render the homepage, including the first wine pick."""
-    return render(request, HOME_TEMPLATE, _pick_context(_pick_index(request)))
-
-
-def wine_pick(request: HttpRequest) -> HttpResponse:
-    """Render the next wine pick — as a fragment for HTMX, else a full page."""
-    context = _pick_context(_pick_index(request))
-    template = PANEL_TEMPLATE if request.htmx else HOME_TEMPLATE  # type: ignore[attr-defined]
-    return render(request, template, context)
+    """Render the landing page."""
+    return render(
+        request,
+        HOME_TEMPLATE,
+        {
+            "phases": [
+                {"label": str(Phase(code).label), "blurb": PHASE_BLURBS[code]}
+                for code in PHASE_ORDER
+            ]
+        },
+    )

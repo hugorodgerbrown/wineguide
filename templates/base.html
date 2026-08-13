@@ -69,8 +69,16 @@ JavaScript has not run.
                     class="ms-auto flex items-center gap-4 font-sans text-caption whitespace-nowrap"
                     aria-label="{% translate 'Main' %}"
                 >
-                    <a href="{% url 'tastings:start' %}">{% translate "Taste" %}</a>
+                    {# Two doors into the session, named for what they do. #}
+                    {# "Taste" was one link that sometimes resumed and #}
+                    {# sometimes started fresh, and the taster could not tell #}
+                    {# which they were about to get. #}
+                    <a href="{% url 'tastings:start' %}">{% translate "Continue" %}</a>
                     <a href="{% url 'journal:list' %}">{% translate "Journal" %}</a>
+                    <a
+                        class="rounded-control bg-accent px-3 py-1.5 text-accent-contrast no-underline"
+                        href="{% url 'tastings:start_new' %}"
+                    >{% translate "New tasting" %}</a>
                     {# POST, so no image tag on any page can sign someone out #}
                     {# mid-tasting (PRD §7, interruption safety). #}
                     <form method="post" action="{% url 'accounts:sign_out' %}">

@@ -120,8 +120,12 @@ The question headline is the only type above 24px in a session.
   advancing without a selection records the question as unanswered.
 - **Button** — labels name the destination ("Hue →"), never "Next" alone.
   52px minimum. No shadow, no scale on press — opacity only.
-- **SessionHeader** — pause is always reachable; a real tasting gets
-  interrupted.
+- **SessionHeader** — back, where you are, and a way out. The spec asks for a
+  pause here, on the reasoning that a real tasting gets interrupted. It does,
+  and nothing is lost when it happens: every tap is durable and the session
+  resumes on its own. So the slot carries **Finish** instead, which saves
+  whatever has been answered and ends the tasting — the thing a taster
+  actually needs mid-session and could not do.
 
 ## Where this build departs
 

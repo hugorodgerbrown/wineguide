@@ -27,14 +27,14 @@ from django.urls import reverse
 from apps.core.enums import WineType
 
 
-@login_required
-def start(request: HttpRequest) -> HttpResponse:
+def _shell(request: HttpRequest, *, resume: bool) -> HttpResponse:
     """Render the session shell.
 
-    The bootstrap context is deliberately small — styles, and the endpoints
-    the client will call. Everything else the client needs it fetches once as
-    a lexicon payload and then caches, so this page is cheap enough for the
-    service worker to keep and serve offline.
+    The bootstrap context is deliberately small — styles, the endpoints the
+    client will call, and whether it may pick up where it left off.
+    Everything else the client needs it fetches once as a lexicon payload and
+    then caches, so this page is cheap enough for the service worker to keep
+    and serve offline.
     """
     return render(
         request,
@@ -50,6 +50,28 @@ def start(request: HttpRequest) -> HttpResponse:
                 ),
                 "sync_url": reverse("tastings_api:sync"),
                 "journal_url": reverse("journal:list"),
+                "new_url": reverse("tastings:start_new"),
+                # The server decides this, not the client. "Take me somewhere
+                # new" is a navigation, and a navigation that lands you back
+                # in a half-finished tasting is the app overriding a choice
+                # the taster just made.
+                "resume": resume,
             }
         },
     )
+
+
+@login_required
+def start(request: HttpRequest) -> HttpResponse:
+    """Render the session, resuming an unfinished one if there is one."""
+    return _shell(request, resume=True)
+
+
+@login_required
+def start_new(request: HttpRequest) -> HttpResponse:
+    """Render the session, always starting from the setup screen.
+
+    An unfinished tasting is not discarded — it stays in the journal, and it
+    is still on the client. It is simply not what this URL is for.
+    """
+    return _shell(request, resume=False)

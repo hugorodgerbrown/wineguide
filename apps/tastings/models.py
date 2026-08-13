@@ -18,8 +18,8 @@ after a blind tasting so the guess can be scored — lives on the session as the
 answer to a prompt.
 
 Sync model: the client owns the session while it is being tasted. It generates
-the uuid, holds state locally, and pushes the whole session up on pause and on
-completion. ``client_updated_at`` is the clock that matters — the server takes
+the uuid, holds state locally, and pushes the whole session up as it goes and
+again on completion. ``client_updated_at`` is the clock that matters — the server takes
 the newer of what it holds and what arrives, so a phone that was offline
 through three phases does not lose them to a stale write from another tab.
 """

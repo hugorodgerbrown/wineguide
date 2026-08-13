@@ -61,6 +61,15 @@
 
   /* Type scale, from the design's tokens/typography.css. Named for the thing
      they size rather than their measurement. */
+  /* Page headings, outside the session. Eight templates were already asking
+     for `text-display` and getting nothing, because the token was never
+     declared and Tailwind cannot emit a utility for a name it has not been
+     given — the headings fell back to the browser default and looked close
+     enough that nobody caught it. The session has no use for this: its
+     largest type is the question, by design. */
+  --text-display: 2.75rem; /* 44px — the page headline, outside a session */
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.02em;
   --text-question: 2.125rem; /* 34px — the only type above 24px in a session */
   --text-question--line-height: 1.1;
   --text-question--letter-spacing: -0.015em;

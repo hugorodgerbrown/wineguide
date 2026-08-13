@@ -210,9 +210,19 @@ def delete(request: HttpRequest, uuid: str) -> HttpResponse:
 
     POST only, and no soft delete: PRD §8 promises a clear delete path, and a
     row that lingers invisibly is not one.
+
+    Reachable from the detail page and from any row in the list. To HTMX it
+    answers with the re-rendered list, so deleting a row from the listing
+    leaves you in the listing rather than bouncing the page; anything else —
+    including a browser with scripting off — gets the redirect it expects.
+    The filters on the query string are preserved either way, so a delete
+    made inside a search does not silently drop you back to everything.
     """
     session: TastingSession = get_object_or_404(
         visible_sessions(request.user), uuid=uuid
     )
     session.delete()
-    return redirect(reverse("journal:list"))
+    if request.htmx:  # type: ignore[attr-defined]
+        return journal_list(request)
+    query = request.GET.urlencode()
+    return redirect(f"{reverse('journal:list')}?{query}" if query else "journal:list")
