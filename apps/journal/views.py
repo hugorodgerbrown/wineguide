@@ -34,8 +34,14 @@ PAGE_SIZE = 20
 #: The only fields the journal lets you change, as
 #: ``(name, label, input type, max length)``. One list, read by both the form
 #: and the handler, so a field cannot appear on screen without being saved or
-#: be saved without appearing. Observations are deliberately absent: the value
-#: of a tasting note is what you thought at the time.
+#: be saved without appearing.
+#:
+#: Observations are absent because they are not the journal's to edit, not
+#: because they are fixed. The journal owns what the bottle was; the session
+#: owns what the taster made of it, and changing an answer goes back through
+#: `tastings:reopen` — where the question, its guidance and the rest of the
+#: sequence are. A second, plainer editor for the same answers would be a
+#: second place the vocabulary has to be understood.
 EDITABLE_FIELDS: tuple[tuple[str, str, str, int], ...] = (
     ("wine_name", "Wine", "text", 200),
     ("producer", "Producer", "text", 200),

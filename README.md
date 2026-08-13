@@ -115,7 +115,11 @@ neither. So the app is split:
   machine. It fetches the lexicon once, caches it in IndexedDB, and then runs
   the whole tasting locally — every tap is written to IndexedDB before
   anything is sent, and the network is a background sync that catches up.
-  This is the one part of the site that needs JavaScript.
+  This is the one part of the site that needs JavaScript. It has three
+  entrances: `/taste/` resumes, `/taste/new/` always starts fresh, and
+  `/taste/<uuid>/` reopens a stored note so any answer can be changed —
+  against the lexicon version that note was taken with, so the questions are
+  the ones that were actually asked.
 - **Everything else** — the journal, sign-in — is ordinary server-rendered
   HTML with HTMX, and works with scripting off.
 

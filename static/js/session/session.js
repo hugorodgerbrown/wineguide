@@ -62,22 +62,37 @@ const now = () => new Date().toISOString();
  * @param {object} options.store - Persistence, real or no-op.
  * @param {string} options.urlTemplate - With WINE_TYPE to substitute.
  * @param {string} options.wineType
+ * @param {string} [options.version] - Pin to one published vocabulary.
  * @param {Function} options.fetchFn
  * @returns {Promise<object|null>}
  */
-export async function fetchLexicon({ store, urlTemplate, wineType, fetchFn }) {
-  const url = urlTemplate.replace('WINE_TYPE', wineType);
+export async function fetchLexicon({
+  store,
+  urlTemplate,
+  wineType,
+  version = '',
+  fetchFn,
+}) {
+  const base = urlTemplate.replace('WINE_TYPE', wineType);
+  const url = version ? `${base}?version=${encodeURIComponent(version)}` : base;
   try {
     const response = await fetchFn(url, { credentials: 'same-origin' });
     if (response.ok) {
       const payload = await response.json();
-      await store.saveLexicon(wineType, payload);
+      // Cached under the style alone, which is what a new session asks for.
+      // A pinned fetch is for reopening an old note and must not displace it.
+      if (!version) await store.saveLexicon(wineType, payload);
       return payload;
     }
   } catch (e) {
     /* Offline. Fall through to whatever we cached. */
   }
-  return store.loadLexicon(wineType);
+  const cached = await store.loadLexicon(wineType);
+  // A pinned request that fell back to the cache is only usable if the cache
+  // happens to hold that same version; the wrong questions are worse than a
+  // clear failure.
+  if (version && cached && cached.version !== version) return null;
+  return cached;
 }
 
 /**
@@ -281,11 +296,35 @@ export async function startSessionApp({
     );
   }
 
+  // Reopening a stored note. The server hands over the whole state and the
+  // version it was taken against, so the questions on screen are the ones
+  // that were actually asked — a note recorded before a question existed must
+  // not come back with a gap in it. Written to IndexedDB on arrival, so from
+  // here it is an ordinary session: change an answer and it syncs back under
+  // the same uuid, which is what makes the upsert idempotent.
+  if (bootstrap.session) {
+    payload = await fetchLexicon({
+      store,
+      urlTemplate: bootstrap.lexicon_url,
+      wineType: bootstrap.session.wineType,
+      version: bootstrap.lexicon_version,
+      fetchFn,
+    });
+    if (payload) {
+      steps = buildSteps(payload);
+      // The summary is the landing place: someone reopening a note came to
+      // change one answer, and every question is one tap from there.
+      state = { ...bootstrap.session, cursor: steps.length };
+      await store.save(state);
+    }
+  }
+
   // Resume rather than restart. Someone who closed the tab mid-phase should
   // find the session where they left it (PRD §6.2, §7) — unless they arrived
   // by asking for a new tasting, in which case resuming is the app ignoring
   // what they just clicked.
-  const unfinished = bootstrap.resume === false ? null : await store.latestUnfinished();
+  const unfinished =
+    state || bootstrap.resume === false ? null : await store.latestUnfinished();
   if (unfinished) {
     const cached = (await store.loadLexicon(unfinished.wineType)) || {
       phases: [],

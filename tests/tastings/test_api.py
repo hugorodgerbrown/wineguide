@@ -124,6 +124,46 @@ class TestLexiconEndpoint:
         )
         assert response.status_code == 503
 
+    def test_pins_to_a_version_when_asked(self, auth: Client, lexicon: Lexicon) -> None:
+        """Reopening a note needs the questions it was actually asked, not
+        whatever is current — so the version is a parameter, and the inactive
+        one is served on request.
+        """
+        make_lexicon("2026.2")
+
+        response = auth.get(
+            reverse("tastings_api:lexicon", kwargs={"wine_type": "still_red"}),
+            {"version": "2026.1"},
+        )
+
+        assert response.status_code == 200
+        assert body_of(response)["version"] == "2026.1"
+
+    def test_serves_the_active_version_by_default(
+        self, auth: Client, lexicon: Lexicon
+    ) -> None:
+        make_lexicon("2026.2")
+
+        response = auth.get(
+            reverse("tastings_api:lexicon", kwargs={"wine_type": "still_red"})
+        )
+
+        assert body_of(response)["version"] == "2026.2"
+
+    def test_says_so_when_the_pinned_version_is_gone(
+        self, auth: Client, lexicon: Lexicon
+    ) -> None:
+        """A note can outlive the vocabulary it was taken against. Better a
+        clear failure than the wrong questions.
+        """
+        response = auth.get(
+            reverse("tastings_api:lexicon", kwargs={"wine_type": "still_red"}),
+            {"version": "1999.1"},
+        )
+
+        assert response.status_code == 503
+        assert "1999.1" in body_of(response)["error"]
+
     def test_is_not_publicly_cacheable(self, auth: Client, lexicon: Lexicon) -> None:
         response = auth.get(
             reverse("tastings_api:lexicon", kwargs={"wine_type": "still_red"})

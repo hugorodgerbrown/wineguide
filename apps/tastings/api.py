@@ -113,17 +113,30 @@ def lexicon(request: HttpRequest, wine_type: str) -> HttpResponse:
 
     Fetched once per session and cached by the client, so this is allowed to
     be the one slow-ish call in the flow. Everything after it is local.
+
+    ``?version=`` pins the answer to one published vocabulary, which is what
+    reopening a note needs: a tasting recorded against 2026.1 must come back
+    with the questions it was actually asked, not with whatever is current.
+    Without it the active version is served, which is what a new tasting
+    wants.
     """
     if wine_type not in WineType.values:
         return JsonResponse({"error": f"Unknown wine type: {wine_type}"}, status=404)
 
+    version = request.GET.get("version", "")
     try:
-        active = Lexicon.objects.active()
+        active = (
+            Lexicon.objects.get(version=version)
+            if version
+            else Lexicon.objects.active()
+        )
     except Lexicon.DoesNotExist:
-        # A deployment with no active lexicon cannot run a session at all.
-        # Say so plainly rather than serving an empty payload the client
-        # would render as a session with no questions.
-        return JsonResponse({"error": "No active lexicon"}, status=503)
+        # Either the deployment has no active lexicon and cannot run a session
+        # at all, or a note points at a version that has since been deleted.
+        # Say so plainly rather than serving an empty payload the client would
+        # render as a session with no questions.
+        detail = f"No lexicon {version}" if version else "No active lexicon"
+        return JsonResponse({"error": detail}, status=503)
 
     response = JsonResponse(build_payload(active, wine_type))
     # Private, not public: the payload is the same for every taster, but the

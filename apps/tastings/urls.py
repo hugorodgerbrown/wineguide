@@ -15,4 +15,8 @@ urlpatterns = [
     # with scripting off, and so the difference is visible in the address bar
     # rather than buried in client state.
     path("new/", views.start_new, name="start_new"),
+    # Reopening a stored note. The uuid is the client-generated one the
+    # journal already links by, so this is reachable from a row without the
+    # journal knowing anything about how a session works.
+    path("<uuid:uuid>/", views.reopen, name="reopen"),
 ]

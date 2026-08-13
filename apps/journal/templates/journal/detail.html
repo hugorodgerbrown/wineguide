@@ -93,10 +93,17 @@
         <p class="text-ink-muted">{% translate "Nothing was recorded in this session." %}</p>
     {% endfor %}
     <div class="mt-8 flex flex-wrap items-center gap-4">
+        {# Two different edits, and the distinction is the point: the journal #}
+        {# owns what the bottle was, the session owns what you thought of it. #}
+        {# Changing an answer goes back through the questions, because that #}
+        {# is where the guidance is. #}
         <a
             class="rounded-card bg-accent px-6 py-2 font-sans text-caption text-accent-contrast no-underline"
-            href="{% url 'journal:edit' uuid=session.uuid %}"
-        >{% translate "Edit the wine details" %}</a>
+            href="{% url 'tastings:reopen' uuid=session.uuid %}"
+        >{% translate "Change the answers" %}</a>
+        <a class="font-sans text-caption" href="{% url 'journal:edit' uuid=session.uuid %}">
+            {% translate "Edit the wine details" %}
+        </a>
         <a class="font-sans text-caption" href="{% url 'journal:list' %}">{% translate "Back to the journal" %}</a>
         <form
             class="ms-auto"

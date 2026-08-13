@@ -44,10 +44,33 @@ HTMX filter request. Nothing in here depends on the page around it.
                         datetime="{{ session.started_at|date:'c' }}"
                     >{{ session.started_at|date:"j M Y" }}</time>
                 </a>
+                {# Straight back into the session, where the answers live. #}
+                {# Same 44px target as the bin beside it. #}
+                <a
+                    class="flex size-11 shrink-0 items-center justify-center rounded-control text-ink-faint no-underline hover:bg-paper-sunken hover:text-ink focus-visible:bg-paper-sunken focus-visible:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    href="{% url 'tastings:reopen' uuid=session.uuid %}"
+                    title="{% blocktranslate with name=session.display_name %}Change answers for {{ name }}{% endblocktranslate %}"
+                    aria-label="{% blocktranslate with name=session.display_name %}Change answers for {{ name }}{% endblocktranslate %}"
+                >
+                    <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.75"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                </a>
                 {# Posts to the same view the detail page uses. With HTMX it #}
                 {# swaps the list back in; without it, the view redirects. #}
                 <form
-                    class="shrink-0 pe-3 ps-1"
+                    class="shrink-0 pe-2 ps-1"
                     method="post"
                     action="{% url 'journal:delete' uuid=session.uuid %}?{{ request.GET.urlencode }}"
                     hx-post="{% url 'journal:delete' uuid=session.uuid %}?{{ request.GET.urlencode }}"
@@ -56,12 +79,35 @@ HTMX filter request. Nothing in here depends on the page around it.
                     hx-confirm="{% translate 'Delete this tasting note? This cannot be undone.' %}"
                 >
                     {% csrf_token %}
+                    {# 44px square: WCAG 2.5.5 Target Size (Enhanced, AAA). #}
+                    {# The label is the accessible name — a bin needs no #}
+                    {# caption, but a screen reader needs to know which note. #}
                     <button
-                        class="cursor-pointer rounded-control px-2 py-2 font-sans text-caption text-ink-muted"
+                        {# Quiet until you reach for it, then unmistakably a #}
+                        {# target. Not the accent: that is reserved, and an #}
+                        {# accented bin reads as the thing to press. #}
+                        class="flex size-11 cursor-pointer items-center justify-center rounded-control text-ink-faint hover:bg-paper-sunken hover:text-ink focus-visible:bg-paper-sunken focus-visible:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                         type="submit"
+                        title="{% blocktranslate with name=session.display_name %}Delete {{ name }}{% endblocktranslate %}"
                         aria-label="{% blocktranslate with name=session.display_name %}Delete {{ name }}{% endblocktranslate %}"
                     >
-                        {% translate "Delete" %}
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                            <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                        </svg>
                     </button>
                 </form>
             </li>
