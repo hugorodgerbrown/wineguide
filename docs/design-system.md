@@ -10,6 +10,23 @@ read at build time, and a rule nobody can find is a rule that gets broken. The
 tokens themselves live in [src/css/main.css](../src/css/main.css); this is the
 part that is not expressible as a token.
 
+## What was built, published back
+
+`bin/export_design_system.py` renders the implemented system — the tokens, the
+five wine themes, and a preview card per session component — into
+`design-export/`, which is then pushed with the DesignSync MCP to:
+
+> **Wineguide — as built** ·
+> https://claude.ai/design/p/8019a23f-e49f-43dc-8714-fe5ebb8583d4
+
+A separate project from the source directions on purpose: that one is the
+brief, this one is what got built, and a diff between them is the useful
+thing. The script never writes to the source.
+
+The bundle is a build artefact and is gitignored; the script is what is
+versioned, and it reads every token straight out of `main.css` rather than
+keeping a second copy that would be wrong within a month.
+
 ## The two that shape the screen
 
 **Progress is the note filling in.** There is exactly one progress indicator

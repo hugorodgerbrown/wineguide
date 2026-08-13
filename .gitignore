@@ -21,6 +21,11 @@ node_modules/
 # builds it first.
 static/css/output.css
 
+# Claude Design bundle, regenerated from src/css/main.css by
+# bin/export_design_system.py. Same reasoning: the script is the artefact
+# worth versioning, not its output.
+design-export/
+
 # Django
 db.sqlite3
 staticfiles/

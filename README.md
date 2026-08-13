@@ -99,6 +99,7 @@ tests/              pytest, mirroring the apps
 tests/js/           Vitest — the client-side modules
 tests/e2e/          Playwright — the paths that need a real browser
 bin/build.sh        Deploy build — dependencies, CSS, collectstatic, migrate
+bin/export_design_system.py  Renders the design bundle for Claude Design
 bin/vendor-js.mjs   Copies third-party browser JS out of node_modules
 ```
 

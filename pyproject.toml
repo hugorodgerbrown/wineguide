@@ -173,6 +173,10 @@ max-complexity = 8
 # land under column 88 makes it harder to read and harder to edit, and the
 # wording is the part of this file that matters.
 "apps/lexicon/seed_data.py" = ["E501"]
+# Long lines here are HTML attribute strings for the design-export preview
+# cards. Same reasoning as the lexicon: reflowing markup to land under column
+# 88 makes it harder to read, and the markup is what the file is for.
+"bin/export_design_system.py" = ["E501"]
 "*/settings/*" = [
     "F403", # from {name} import * used; unable to detect undefined names
     "F405", # {name} may be undefined, or defined from star imports
