@@ -525,7 +525,9 @@ QUESTIONS: list[QuestionSpec] = [
             "bottle and time on the lees. Big, short-lived ones point at a "
             "faster tank method."
         ),
-        "control": Control.SINGLE,
+        # A scale, not a set of names: delicate to aggressive runs one way, and
+        # the `grain` mark reads the rungs in that order.
+        "control": Control.SCALE,
         "axis": Axis.GRAIN,
         "wine_types": [WineType.SPARKLING],
         "options": _scale(
@@ -727,6 +729,46 @@ QUESTIONS: list[QuestionSpec] = [
                 "high",
                 "High",
                 "Your mouth feels stripped and furry; it lasts and lasts.",
+            ),
+        ),
+    },
+    # Straight after tannin on purpose. The two are confused more often than
+    # any other pair in the mouth, and asking them back to back is the
+    # cheapest way to teach the difference: tannin is something you feel,
+    # bitterness is something you taste.
+    {
+        "code": "bitterness",
+        "phase": Phase.TASTE,
+        "short": "Bitterness",
+        "prompt": "Is there any bitterness?",
+        "how": (
+            "Bitterness is a taste, and it arrives late — at the back of the "
+            "tongue, after you swallow, like tonic water or grapefruit pith. "
+            "Tannin is the dry drag on your gums; this is not that."
+        ),
+        "why": (
+            "A little is structure and stops a wine cloying. A lot usually "
+            "means unripe pips, stems left in too long, or a heavy hand with "
+            "oak, and it is the thing most likely to make a wine unpleasant "
+            "rather than merely dull."
+        ),
+        "control": Control.SCALE,
+        "axis": Axis.FILL,
+        "options": _scale(
+            (
+                "none",
+                "None",
+                "Nothing bitter at all; the wine finishes clean.",
+            ),
+            (
+                "slight",
+                "Slight",
+                "A small twist at the very back, gone in a second or two.",
+            ),
+            (
+                "marked",
+                "Marked",
+                "Bitterness you notice before anything else, and it lingers.",
             ),
         ),
     },

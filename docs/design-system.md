@@ -88,7 +88,7 @@ The question headline is the only type above 24px in a session.
   | --- | --- | --- |
   | Carry | Distance it travels to you | Smell intensity |
   | Burst | How much arrives at once | Flavour intensity |
-  | Fill | Quantity on the tongue | Sweetness |
+  | Fill | Quantity on the tongue | Sweetness, Bitterness |
   | Spread | How far across the mouth | Acidity |
   | Rise | Warmth climbing the throat | Alcohol |
   | Weight | Thickness | Body |

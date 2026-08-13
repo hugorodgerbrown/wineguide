@@ -246,7 +246,7 @@ def dots(
 AXES: list[tuple[str, str, str, str]] = [
     ("carry", "Carry", "Distance the sensation travels to you", "Smell intensity"),
     ("burst", "Burst", "How much arrives at once, in every direction", "Flavour"),
-    ("fill", "Fill", "Quantity of a substance on the tongue", "Sweetness"),
+    ("fill", "Fill", "Quantity of a substance on the tongue", "Sweetness · Bitterness"),
     ("spread", "Spread", "How far across the mouth it reaches", "Acidity"),
     ("rise", "Rise", "Warmth climbing from the throat", "Alcohol"),
     ("weight", "Weight", "Thickness — how heavy it feels", "Body"),

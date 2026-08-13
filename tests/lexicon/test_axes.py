@@ -65,6 +65,7 @@ class TestSeededAxes:
             ("colour", Axis.SWATCH),
             ("nose_intensity", Axis.CARRY),
             ("sweetness", Axis.FILL),
+            ("bitterness", Axis.FILL),
             ("acidity", Axis.SPREAD),
             ("alcohol", Axis.RISE),
             ("body", Axis.WEIGHT),
@@ -82,14 +83,28 @@ class TestSeededAxes:
         self, questions: list[Question]
     ) -> None:
         """The axis, not the question, decides the mark — and both of these are
-        things the mouth feels rather than tastes. Mousse also proves the mark
-        does not follow the control type: it is a `single`, and it is ordered
-        all the same.
+        things the mouth feels rather than tastes.
         """
         by_code = {q.code: q for q in questions}
         assert by_code["tannin"].axis == Axis.GRAIN
         assert by_code["mousse"].axis == Axis.GRAIN
-        assert by_code["mousse"].control == Control.SINGLE
+
+    def test_sweetness_and_bitterness_share_the_fill_mark(
+        self, questions: list[Question]
+    ) -> None:
+        """Both are quantities on the tongue, so both fill. That two questions
+        can share one mark is the point of keying on the axis.
+        """
+        by_code = {q.code: q for q in questions}
+        assert by_code["sweetness"].axis == Axis.FILL
+        assert by_code["bitterness"].axis == Axis.FILL
+
+    def test_bitterness_follows_tannin(self, questions: list[Question]) -> None:
+        """Asked back to back on purpose: they are the pair tasters confuse
+        most, and the contrast is what teaches the difference.
+        """
+        taste = [q.code for q in questions if q.phase == Phase.TASTE]
+        assert taste.index("bitterness") == taste.index("tannin") + 1
 
     def test_categorical_questions_take_no_mark(
         self, questions: list[Question]
