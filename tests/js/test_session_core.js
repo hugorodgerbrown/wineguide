@@ -18,9 +18,10 @@ import {
   currentStep,
   depthRung,
   goTo,
-  hasRungMark,
   isFinished,
   isOverBudget,
+  markAxis,
+  markReach,
   next,
   noteSoFar,
   pause,
@@ -683,34 +684,63 @@ describe('noteSoFar', () => {
   });
 });
 
-describe('hasRungMark', () => {
+describe('markAxis', () => {
   /** One step, built the way `buildSteps` builds them. */
-  const step = (phase, control) => ({ phase, question: { control } });
+  const step = (phase, axis) => ({ phase, question: { axis } });
 
-  it('marks an observed scale', () => {
-    // The ramp is a teaching aid: it shows what pale and deep look like.
-    expect(hasRungMark(step('look', 'scale'))).toBe(true);
-    expect(hasRungMark(step('taste', 'scale'))).toBe(true);
+  it('takes the axis the server sent', () => {
+    // The axis rather than the question decides the mark, so a question added
+    // later inherits an existing drawing.
+    expect(markAxis(step('smell', 'carry'))).toBe('carry');
+    expect(markAxis(step('taste', 'weight'))).toBe('weight');
+    expect(markAxis(step('look', 'swatch'))).toBe('swatch');
   });
 
-  it('leaves the Conclude scales unmarked', () => {
+  it('leaves a categorical question unmarked', () => {
+    expect(markAxis(step('look', ''))).toBe('');
+    expect(markAxis({ phase: 'smell', question: {} })).toBe('');
+  });
+
+  it('leaves Conclude unmarked even if the payload says otherwise', () => {
     // Quality and confidence are ordered, but they are judgements rather than
-    // sensations — a depth ramp beside "faulty → outstanding" would say the
-    // wine gets deeper as it gets better.
-    expect(hasRungMark(step('conclude', 'scale'))).toBe(false);
+    // sensations — a mark beside "faulty → outstanding" illustrates nothing.
+    // A payload cached before that was settled must not resurrect one.
+    expect(markAxis(step('conclude', 'fill'))).toBe('');
   });
 
-  it('leaves categorical questions unmarked wherever they fall', () => {
-    expect(hasRungMark(step('look', 'single'))).toBe(false);
-    expect(hasRungMark(step('smell', 'multi'))).toBe(false);
-    expect(hasRungMark(step('conclude', 'single'))).toBe(false);
-  });
-
-  it('says no rather than throwing when there is no step', () => {
+  it('says nothing rather than throwing when there is no step', () => {
     // Called during a render, where a missing step means the session has run
     // off the end — drawing nothing is the right answer, not an exception.
-    expect(hasRungMark(undefined)).toBe(false);
-    expect(hasRungMark({})).toBe(false);
+    expect(markAxis(undefined)).toBe('');
+    expect(markAxis({})).toBe('');
+  });
+});
+
+describe('markReach', () => {
+  it('runs 0 to 1 across a three-rung scale', () => {
+    expect(markReach(0, 3)).toBe(0);
+    expect(markReach(1, 3)).toBe(0.5);
+    expect(markReach(2, 3)).toBe(1);
+  });
+
+  it('spreads the same range over a five-rung scale', () => {
+    // Sweetness has five rungs and everything else three; interpolating is
+    // what lets one CSS rule draw both.
+    expect(markReach(0, 5)).toBe(0);
+    expect(markReach(2, 5)).toBe(0.5);
+    expect(markReach(4, 5)).toBe(1);
+  });
+
+  it('reads a lone option as full rather than empty', () => {
+    // No progression to show. An empty mark beside the only answer would be
+    // the one case where the drawing contradicts the label.
+    expect(markReach(0, 1)).toBe(1);
+    expect(markReach(0, 0)).toBe(1);
+  });
+
+  it('clamps an index outside the scale', () => {
+    expect(markReach(-3, 3)).toBe(0);
+    expect(markReach(99, 3)).toBe(1);
   });
 });
 

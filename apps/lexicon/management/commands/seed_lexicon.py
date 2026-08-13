@@ -69,6 +69,7 @@ class Command(BaseCommand):
                 how_to_tell=spec.get("how", ""),
                 why_it_matters=spec.get("why", ""),
                 control=spec["control"],
+                axis=spec.get("axis", ""),
                 wine_types=list(spec.get("wine_types", [])),
                 order=order,
             )

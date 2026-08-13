@@ -74,6 +74,40 @@ class Control(models.TextChoices):
     SCALE = "scale", _("Scale, low to high")
 
 
+class Axis(models.TextChoices):
+    """What a question measures, and therefore what mark its options carry.
+
+    From the design system's `guidelines/sensory-axes.html`: every observed
+    scale is one sense reporting one geometry. Sight reports colour, smell
+    reports how far the wine carries, the taste receptors report quantity and
+    where it lands, the trigeminal nerve reports weight, heat and friction,
+    and the finish reports time. Five modalities, and the geometry is what the
+    mark draws.
+
+    The axis rather than the question decides the mark, so a question added
+    later inherits an existing one and nothing new has to be drawn. Tannin and
+    mousse are both GRAIN because both are friction; sweetness is FILL because
+    it is a quantity on the tongue.
+
+    Blank is meaningful and is the default: it means this question carries no
+    mark. Everything in Conclude is blank — "faulty" to "outstanding" is
+    ordered, but it is a judgement the taster arrives at rather than a
+    sensation they receive, so there is no geometry for a mark to illustrate.
+    Categorical questions are blank for the same reason: no ramp runs through
+    "clear" and "hazy".
+    """
+
+    CARRY = "carry", _("Distance the sensation travels")
+    BURST = "burst", _("How much arrives at once")
+    FILL = "fill", _("Quantity on the tongue")
+    SPREAD = "spread", _("How far across the mouth it reaches")
+    RISE = "rise", _("Warmth climbing from the throat")
+    WEIGHT = "weight", _("Thickness — how heavy it feels")
+    GRAIN = "grain", _("Friction — grip and texture")
+    LENGTH = "length", _("Time it lasts after swallowing")
+    SWATCH = "swatch", _("Hue and depth — the one coloured mark")
+
+
 class AromaOrigin(models.TextChoices):
     """Where a smell or flavour came from.
 

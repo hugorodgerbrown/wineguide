@@ -96,6 +96,9 @@ def _question_payload(question: Question, wine_type: str) -> dict:
         # Available on tap — what the answer says about the wine.
         "why": question.why_it_matters,
         "control": question.control,
+        # What the question measures, which is what its mark draws. Empty for
+        # a question that carries no mark — see `Axis`.
+        "axis": question.axis,
         "options": [
             _option_payload(option, children_by_parent.get(option.id, []), wine_type)
             for option in applicable

@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from apps.core.enums import Control, Phase, WineType
+from apps.core.enums import Axis, Control, Phase, WineType
 from apps.lexicon.models import Lexicon
 from apps.lexicon.payload import build_payload
 from tests.factories import make_lexicon, make_option, make_question
@@ -39,6 +39,7 @@ def lexicon() -> Lexicon:
         "tannin",
         phase=Phase.TASTE,
         control=Control.SCALE,
+        axis=Axis.GRAIN,
         wine_types=[WineType.STILL_RED],
         order=2,
     )
@@ -100,6 +101,24 @@ class TestBuildPayload:
         }
         assert controls["tannin"] == "scale"
         assert controls["clarity"] == "single"
+
+    def test_carries_the_axis(self, lexicon: Lexicon) -> None:
+        """The axis decides the mark, so it has to reach the client — which
+        never asks a follow-up question.
+        """
+        red = build_payload(lexicon, WineType.STILL_RED)
+        axes = {q["code"]: q["axis"] for p in red["phases"] for q in p["questions"]}
+        assert axes["tannin"] == "grain"
+
+    def test_an_unmarked_question_carries_an_empty_axis(self, lexicon: Lexicon) -> None:
+        """Present and empty, not absent. A missing key would make "no mark"
+        indistinguishable from an older payload that predates the field.
+        """
+        red = build_payload(lexicon, WineType.STILL_RED)
+        clarity = next(
+            q for p in red["phases"] for q in p["questions"] if q["code"] == "clarity"
+        )
+        assert clarity["axis"] == ""
 
     def test_carries_swatches(self, lexicon: Lexicon) -> None:
         red = build_payload(lexicon, WineType.STILL_RED)

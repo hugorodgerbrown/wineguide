@@ -301,6 +301,211 @@
     opacity: 0.55;
     pointer-events: none;
   }
+
+  /* ——— Scale marks ———————————————————————————
+     One mark per sensory axis, from the design system's `Scale marks`. A
+     question inherits the mark of the axis it measures (`Axis` in
+     apps/core/enums.py), so nothing new has to be drawn when a question is
+     added.
+
+     Here rather than in utilities because none of it is expressible as one:
+     the shapes are conic and repeating-linear gradients, dotted ghost rings,
+     and sizes interpolated from `--reach` — how far along its scale this rung
+     sits, 0 at the bottom and 1 at the top. Interpolating rather than
+     hard-coding three rungs is what lets sweetness draw five and the rest
+     draw three from the same rule.
+
+     Every mark is themed accent and NEVER the wine's depth ramp: colour
+     belongs to the colour questions, which take `swatch` and are drawn with
+     the ramp by the renderer instead. The unreached part of a scale is always
+     a hairline dot in ink-ghost — it is scaffolding, not an answer. */
+  .mark {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: var(--color-accent-quiet);
+  }
+
+  .mark[data-on="true"] {
+    color: var(--color-accent);
+  }
+
+  .mark > * {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .mark .ghost {
+    border: 1px dotted var(--color-ink-ghost);
+  }
+
+  /* Carry — concentric rings, one per rung: how far the smell travels before
+     it reaches you. The only discrete mark, because "across the table" is a
+     step out from "at the rim", not a longer bar. */
+  .mark[data-axis="carry"] > i {
+    width: calc(7px + var(--i) * (32px / var(--n)));
+    height: calc(7px + var(--i) * (32px / var(--n)));
+    border: 1px solid currentColor;
+    border-radius: 999px;
+  }
+
+  .mark[data-axis="carry"] > i:first-child {
+    border: 0;
+    background: currentColor;
+  }
+
+  .mark[data-axis="carry"] > i[data-reached="false"] {
+    border-style: dotted;
+    border-color: var(--color-ink-ghost);
+  }
+
+  /* Burst — spokes radiating from a hollow centre: how much arrives at once,
+     in every direction. More flavour is more spokes, not a longer one. */
+  .mark[data-axis="burst"] > b {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: repeating-conic-gradient(
+      from 0deg,
+      currentColor 0 4deg,
+      transparent 4deg calc(90deg / (1 + var(--reach) * 3))
+    );
+    -webkit-mask: radial-gradient(closest-side, transparent 20%, #000 26%);
+    mask: radial-gradient(closest-side, transparent 20%, #000 26%);
+  }
+
+  .mark[data-axis="burst"] > .ghost {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+  }
+
+  /* Fill — a vessel filling up: quantity of something on the tongue. */
+  .mark[data-axis="fill"] > .ghost {
+    width: 32px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .mark[data-axis="fill"] > b {
+    top: auto;
+    bottom: 5px;
+    width: 18px;
+    height: calc(3px + var(--reach) * 25px);
+    background: currentColor;
+    border-radius: 2px 2px 6px 6px;
+    transform: translateX(-50%);
+  }
+
+  /* Spread — a bar widening between two stops: how far across the mouth the
+     acidity reaches. Sideways, because that is where it is felt. */
+  .mark[data-axis="spread"] > .ghost {
+    width: 38px;
+    height: 0;
+    border-width: 1px 0 0;
+  }
+
+  .mark[data-axis="spread"] > u {
+    width: 0;
+    height: 14px;
+    border-left: 1px solid var(--color-ink-ghost);
+    transform: translateY(-50%);
+  }
+
+  .mark[data-axis="spread"] > u:nth-of-type(1) {
+    left: 2px;
+  }
+
+  .mark[data-axis="spread"] > u:nth-of-type(2) {
+    left: 38px;
+  }
+
+  .mark[data-axis="spread"] > b {
+    width: calc(11px + var(--reach) * 25px);
+    height: 5px;
+    border-radius: 3px;
+    background: currentColor;
+  }
+
+  /* Rise — a column climbing: the warmth alcohol sends up the throat. */
+  .mark[data-axis="rise"] > .ghost {
+    top: auto;
+    bottom: 2px;
+    width: 12px;
+    height: 34px;
+    border-bottom: 1px solid var(--color-ink-ghost);
+    transform: translateX(-50%);
+  }
+
+  .mark[data-axis="rise"] > b {
+    top: auto;
+    bottom: 2px;
+    width: 12px;
+    height: calc(5px + var(--reach) * 28px);
+    background: currentColor;
+    transform: translateX(-50%);
+  }
+
+  /* Weight — a slab thickening between two rails: how heavy it feels. */
+  .mark[data-axis="weight"] > .ghost {
+    width: 40px;
+    height: 26px;
+    border-width: 1px 0;
+  }
+
+  .mark[data-axis="weight"] > b {
+    width: 32px;
+    height: calc(3px + var(--reach) * 18px);
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  /* Grain — hatching that tightens: friction, grip, texture. Tannin and
+     mousse share it because both are things the mouth feels rather than
+     tastes. */
+  .mark[data-axis="grain"] > .ghost {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: repeating-linear-gradient(
+      -45deg,
+      currentColor 0 1px,
+      transparent 1px calc(9px - var(--reach) * 6px)
+    );
+  }
+
+  /* Length — a line running on after the start: time it lasts once
+     swallowed. */
+  .mark[data-axis="length"] > .ghost {
+    left: 1px;
+    width: 38px;
+    height: 0;
+    border-width: 1px 0 0;
+    transform: translateY(-50%);
+  }
+
+  .mark[data-axis="length"] > u {
+    left: 1px;
+    width: 0;
+    height: 14px;
+    border-left: 1px solid var(--color-ink-ghost);
+    transform: translateY(-50%);
+  }
+
+  .mark[data-axis="length"] > b {
+    left: 1px;
+    width: calc(10px + var(--reach) * 26px);
+    height: 3px;
+    border-radius: 2px;
+    background: currentColor;
+    transform: translate(0, -50%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

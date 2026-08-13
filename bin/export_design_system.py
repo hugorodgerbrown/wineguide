@@ -62,6 +62,28 @@ body {
   text-transform: uppercase;
   color: var(--color-ink-faint);
 }
+th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: var(--tracking-meta);
+  text-transform: uppercase;
+  font-weight: 400;
+  color: var(--color-ink-faint);
+  padding: 0 12px 8px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+td {
+  padding: 11px 12px 11px 0;
+  border-bottom: 1px solid var(--color-rule);
+  vertical-align: middle;
+  color: var(--color-ink-muted);
+}
+td.n {
+  color: var(--color-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
 """
 
 META = (
@@ -149,6 +171,11 @@ def build_stylesheet() -> str:
         "  --color-accent-quiet: var(--accent-quiet-dark);\n"
         "}\n"
     )
+    # The scale marks and anything else the app could not express as a
+    # utility. Lifted whole rather than re-typed for the same reason the
+    # tokens are: a second copy would be wrong within a month, and the marks
+    # are the one part of the system a card cannot fake with inline styles.
+    parts.append(_block(css, "@layer components"))
     parts.append(CARD_CHROME)
     return "\n".join(parts)
 
@@ -214,18 +241,65 @@ def dots(
     return "".join(out)
 
 
+#: Axis code, mark name, what it measures, and the questions that take it.
+#: Mirrors `Axis` in apps/core/enums.py; the card is a picture of that table.
+AXES: list[tuple[str, str, str, str]] = [
+    ("carry", "Carry", "Distance the sensation travels to you", "Smell intensity"),
+    ("burst", "Burst", "How much arrives at once, in every direction", "Flavour"),
+    ("fill", "Fill", "Quantity of a substance on the tongue", "Sweetness"),
+    ("spread", "Spread", "How far across the mouth it reaches", "Acidity"),
+    ("rise", "Rise", "Warmth climbing from the throat", "Alcohol"),
+    ("weight", "Weight", "Thickness — how heavy it feels", "Body"),
+    ("grain", "Grain", "Friction — grip and texture", "Tannin · Bubbles"),
+    ("length", "Length", "Time it lasts after swallowing", "Finish"),
+]
+
+
+def mark(axis: str, index: int, count: int, *, selected: bool = False) -> str:
+    """Return one scale mark, in the same shape `renderMark` builds.
+
+    Every size comes from the components layer in main.css, which the exported
+    stylesheet carries verbatim — so this is nodes and two custom properties,
+    never geometry. A card that inlined the sizes would drift from the app the
+    first time a mark was tuned.
+    """
+    reach = 1.0 if count <= 1 else index / (count - 1)
+    open_tag = (
+        f'<span class="mark" data-axis="{axis}" '
+        f'data-on="{"true" if selected else "false"}" style="--reach:{reach}">'
+    )
+    if axis == "carry":
+        rungs = "".join(
+            f'<i style="--i:{i};--n:{max(count - 1, 1)}" '
+            f'data-reached="{"true" if i <= index else "false"}"></i>'
+            for i in range(count)
+        )
+        return open_tag + rungs + "</span>"
+    if axis == "grain":
+        return open_tag + '<span class="ghost"></span></span>'
+    stops = (
+        "<u></u><u></u>" if axis == "spread" else "<u></u>" if axis == "length" else ""
+    )
+    return open_tag + '<span class="ghost"></span>' + stops + "<b></b></span>"
+
+
 def eyebrow(text: str) -> str:
     """Return a small caption labelling a group of rows within a card."""
-    return f'<span class="lbl" style="margin-top:6px">{text}</span>'
+    return f'<span class="lbl" style="display:block;margin:6px 0 10px">{text}</span>'
 
 
 def option(
-    label: str, desc: str, *, selected: bool = False, rung: int | None = None
+    label: str,
+    desc: str,
+    *,
+    selected: bool = False,
+    rung: int | None = None,
+    lead: str = "",
 ) -> str:
     """Return one option row — 76px minimum, selected is a fill plus accent border."""
     border = "var(--color-accent)" if selected else "var(--color-rule)"
     bg = "var(--color-paper-raised)" if selected else "var(--color-paper-sunken)"
-    disc = (
+    disc = lead or (
         f'<span style="width:40px;height:40px;flex:none;border-radius:999px;'
         f'background:var(--color-depth-{rung})"></span>'
         if rung
@@ -493,6 +567,63 @@ def write_components() -> None:
         + option("Very good", "Balanced with real length and complexity.")
         + option("Clear", "You can see straight through it.")
         + "</div>",
+    )
+
+    rows = "".join(
+        f'<tr><td class="n">{name}</td>'
+        + '<td><span style="display:flex;align-items:center;gap:6px">'
+        + "".join(mark(code, i, 3, selected=True) for i in range(3))
+        + "</span></td>"
+        + f"<td>{measures}</td><td>{questions}</td></tr>"
+        for code, name, measures, questions in AXES
+    )
+    card(
+        "components/scale-mark.html",
+        "Session",
+        "760x1040",
+        "Scale marks",
+        "One mark per sensory axis, never one per question. Themed accent, "
+        "never the depth ramp. The dotted ghost is the whole scale",
+        '<div data-wine="still_white">'
+        '<p style="margin:0 0 18px;max-width:60ch;color:var(--color-ink-muted)">'
+        "Eight marks, one per <b>sensory axis</b> — so a question added later "
+        "inherits an existing drawing and nothing new has to be invented. "
+        "Every mark is themed accent, <b>never the wine’s depth ramp</b>: "
+        "colour belongs to the colour questions, which take the swatch. The "
+        "dotted ghost is the full scale; the inked part is how far this answer "
+        "reaches. Sizes interpolate, so sweetness draws five rungs and "
+        "everything else three from one rule.</p>"
+        + eyebrow("In situ · smell intensity")
+        + '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px">'
+        + option(
+            "Light",
+            "You have to put your nose in the glass to find anything.",
+            lead=mark("carry", 0, 3),
+        )
+        + option(
+            "Medium",
+            "Clear at the rim of the glass without leaning in.",
+            selected=True,
+            lead=mark("carry", 1, 3, selected=True),
+        )
+        + option(
+            "Pronounced",
+            "You could smell it across the table.",
+            lead=mark("carry", 2, 3),
+        )
+        + "</div>"
+        + eyebrow("The family")
+        + '<table style="border-collapse:collapse;width:100%;font-size:var(--text-fact)">'
+        + '<tr><th style="width:96px">Mark</th><th style="width:150px">Three rungs</th>'
+        + "<th>Axis it measures</th><th>Questions</th></tr>"
+        + rows
+        + "</table>"
+        + '<p style="margin:20px 0 0;max-width:60ch;color:var(--color-ink-muted)">'
+        "<b>Nothing in Conclude carries a mark.</b> Quality and confidence are "
+        "ordered, but they are judgements the taster arrives at rather than "
+        "sensations they receive, so there is no geometry to illustrate. A mark "
+        "means you observed it; a plain row means you decided it.</p>"
+        "</div>",
     )
 
     card(

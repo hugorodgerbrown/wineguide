@@ -38,9 +38,10 @@ import {
   allAnswered,
   currentStep,
   depthRung,
-  hasRungMark,
   isFinished,
   isOverBudget,
+  markAxis,
+  markReach,
   noteSoFar,
   progress,
   questionStates,
@@ -403,25 +404,93 @@ export function renderNoteCard(steps, state, onJump, onExpand) {
 }
 
 /**
+ * Render the mark for one rung of a scale.
+ *
+ * Eight marks, one per sensory axis rather than one per question, so a
+ * question added later inherits an existing drawing. Every shape and size is
+ * in the components layer of main.css keyed on `[data-axis]`, because none of
+ * it is expressible as a utility; this builds the nodes each shape needs and
+ * hands the CSS two numbers — `--reach`, how far along the scale this rung
+ * sits, and for the concentric mark `--i` and `--n`.
+ *
+ * `swatch` is not drawn here. It is the one coloured mark, it comes from the
+ * wine's depth ramp rather than the accent, and `renderOption` already had
+ * it.
+ *
+ * Decorative: the label beside it carries the meaning (PRD §8), and a mark
+ * never appears without one.
+ *
+ * @param {string} axis - An `Axis` value, never 'swatch' or ''.
+ * @param {number} index - Position among the question's options.
+ * @param {number} count - How many options it has.
+ * @param {boolean} selected
+ * @returns {HTMLElement}
+ */
+function renderMark(axis, index, count, selected) {
+  const reach = markReach(index, count);
+  const mark = el('span', {
+    class: 'mark',
+    style: `--reach:${reach}`,
+    dataset: { axis, on: selected ? 'true' : 'false' },
+    'aria-hidden': 'true',
+  });
+
+  if (axis === 'carry') {
+    // The one discrete mark: a ring per rung, inked as far as this answer
+    // reaches. "Across the table" is a step out from "at the rim", not a
+    // longer bar, so it counts rather than interpolates.
+    for (let i = 0; i < count; i += 1) {
+      mark.append(
+        el('i', {
+          style: `--i:${i};--n:${Math.max(count - 1, 1)}`,
+          dataset: { reached: i <= index ? 'true' : 'false' },
+        }),
+      );
+    }
+    return mark;
+  }
+
+  if (axis === 'grain') {
+    // One node: the hatching and the box it sits in are the same rectangle,
+    // the border ghosted and the hatch inked.
+    mark.append(el('span', { class: 'ghost' }));
+    return mark;
+  }
+
+  // The rest are a ghost showing the whole scale and an inked part showing
+  // how far this rung gets, plus the end stops two of them need.
+  mark.append(el('span', { class: 'ghost' }));
+  if (axis === 'spread') {
+    mark.append(el('u'), el('u'));
+  } else if (axis === 'length') {
+    mark.append(el('u'));
+  }
+  mark.append(el('b'));
+  return mark;
+}
+
+/**
  * Render one option, with the guidance that says how to know it is this one.
  *
- * An observed scale gets a graded swatch per rung, drawn from the wine's depth
- * ramp — so "pale / medium / deep" is shown as well as named. The swatch is
- * never the only signal; the label is always there beside it (PRD §8).
+ * A marked question draws its axis beside every rung — a widening bar for
+ * acidity, a thickening slab for body — so the scale is shown as well as
+ * named. The mark is never the only signal; the label is always there beside
+ * it (PRD §8).
  *
- * Whether a rung is marked at all is `hasRungMark`'s decision, not this
- * function's: the Conclude scales are ordered but carry no mark, because
- * there is no sensation for one to illustrate.
+ * Which mark, or none, is `markAxis`'s decision rather than this function's:
+ * the Conclude scales are ordered but carry no mark, because there is no
+ * sensation for one to illustrate.
  *
  * @param {object} option
  * @param {object} question
- * @param {number} index - Position among its siblings, for the depth ramp.
+ * @param {number} index - Position among its siblings.
  * @param {boolean} selected
  * @param {(code: string) => void} onPick
- * @param {boolean} marked - Does this question's scale carry rung marks?
+ * @param {string} axis - This question's `Axis`, or '' for a plain row.
+ * @param {number} count - How many siblings, for interpolating the mark.
  * @returns {HTMLElement}
  */
-function renderOption(option, question, index, selected, onPick, marked) {
+function renderOption(option, question, index, selected, onPick, axis, count) {
   const rung = Math.min(index + 1, 3);
 
   return el(
@@ -446,11 +515,16 @@ function renderOption(option, question, index, selected, onPick, marked) {
             'aria-hidden': 'true',
           })
         : null,
-      !option.swatch && marked
+      // The depth question: no hex of its own, and the one place the ramp is
+      // the right mark, because the thing being judged IS the colour.
+      !option.swatch && axis === 'swatch'
         ? el('span', {
             class: `size-10 shrink-0 rounded-full bg-depth-${rung}`,
             'aria-hidden': 'true',
           })
+        : null,
+      !option.swatch && axis && axis !== 'swatch'
+        ? renderMark(axis, index, count, selected)
         : null,
       el('span', { class: 'flex flex-col gap-1' }, [
         el('span', { class: 'font-serif text-answer', text: option.label }),
@@ -631,7 +705,7 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
     ]),
   );
 
-  const marked = hasRungMark(step);
+  const axis = markAxis(step);
   const options = el('div', { class: 'mt-5 flex flex-col gap-2.5' });
   question.options.forEach((option, index) => {
     options.append(
@@ -641,7 +715,8 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
         index,
         answered.values.includes(option.code),
         handlers.onAnswer,
-        marked,
+        axis,
+        question.options.length,
       ),
     );
     // A category's descriptors appear once it is chosen, so the first screen
@@ -658,7 +733,11 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
             childIndex,
             answered.values.includes(child.code),
             handlers.onAnswer,
-            marked,
+            // Always '' in practice — only the multi questions nest, and a
+            // multi has no axis. Passed rather than hard-coded so the two
+            // calls cannot drift.
+            axis,
+            option.children.length,
           ),
         );
       });

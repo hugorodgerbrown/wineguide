@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from apps.core.enums import AromaOrigin, Control, Phase, WineType
+from apps.core.enums import AromaOrigin, Axis, Control, Phase, WineType
 
 # Annotated list[str] rather than list[WineType]: these land in a JSONField
 # and in a TypedDict of plain strings, and list is invariant, so the enum type
@@ -67,6 +67,7 @@ class QuestionSpec(TypedDict, total=False):
     how: str
     why: str
     control: str
+    axis: str
     wine_types: list[str]
     options: list[OptionSpec]
 
@@ -386,6 +387,7 @@ QUESTIONS: list[QuestionSpec] = [
             "on the skins. Thick-skinned grapes in warm places make deep wines."
         ),
         "control": Control.SCALE,
+        "axis": Axis.SWATCH,
         "options": _scale(
             (
                 "pale",
@@ -420,6 +422,7 @@ QUESTIONS: list[QuestionSpec] = [
             "garnet towards brown. It is your first evidence of age."
         ),
         "control": Control.SINGLE,
+        "axis": Axis.SWATCH,
         "options": [
             # Swatches are decoration; the label is the answer. Never rely on
             # the colour alone (PRD §8, accessibility).
@@ -523,6 +526,7 @@ QUESTIONS: list[QuestionSpec] = [
             "faster tank method."
         ),
         "control": Control.SINGLE,
+        "axis": Axis.GRAIN,
         "wine_types": [WineType.SPARKLING],
         "options": _scale(
             (
@@ -588,6 +592,7 @@ QUESTIONS: list[QuestionSpec] = [
             "certain grapes on their own."
         ),
         "control": Control.SCALE,
+        "axis": Axis.CARRY,
         "options": _scale(
             (
                 "light",
@@ -637,6 +642,7 @@ QUESTIONS: list[QuestionSpec] = [
             "they are separate facts."
         ),
         "control": Control.SCALE,
+        "axis": Axis.FILL,
         "options": _scale(
             ("dry", "Dry", "No sweetness at all on the tip of the tongue."),
             (
@@ -669,6 +675,7 @@ QUESTIONS: list[QuestionSpec] = [
             "or a late harvest."
         ),
         "control": Control.SCALE,
+        "axis": Axis.SPREAD,
         "options": _scale(
             (
                 "low",
@@ -703,6 +710,7 @@ QUESTIONS: list[QuestionSpec] = [
             "water, tannin dries you out."
         ),
         "control": Control.SCALE,
+        "axis": Axis.GRAIN,
         "wine_types": TANNIC,
         "options": _scale(
             (
@@ -738,6 +746,7 @@ QUESTIONS: list[QuestionSpec] = [
             "place or a later pick."
         ),
         "control": Control.SCALE,
+        "axis": Axis.RISE,
         "options": _scale(
             (
                 "low",
@@ -764,6 +773,7 @@ QUESTIONS: list[QuestionSpec] = [
             "body, which is a useful cross-check on the last answer."
         ),
         "control": Control.SCALE,
+        "axis": Axis.WEIGHT,
         "options": _scale(
             (
                 "light",
@@ -794,6 +804,7 @@ QUESTIONS: list[QuestionSpec] = [
             "evidence."
         ),
         "control": Control.SCALE,
+        "axis": Axis.BURST,
         "options": _scale(
             ("light", "Light", "You have to concentrate to name anything."),
             ("medium", "Medium", "Flavours are clear without being insistent."),
@@ -837,6 +848,7 @@ QUESTIONS: list[QuestionSpec] = [
             "hardest to fake. Cheap wine tends to stop abruptly."
         ),
         "control": Control.SCALE,
+        "axis": Axis.LENGTH,
         "options": _scale(
             ("short", "Short", "Gone within a couple of seconds."),
             ("medium", "Medium", "Holds for five to ten seconds, then fades."),

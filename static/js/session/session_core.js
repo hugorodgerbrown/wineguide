@@ -464,28 +464,49 @@ export function depthRung(steps, state) {
 }
 
 /**
- * Do this question's options carry a rung mark?
+ * Which mark this question's options carry, if any.
  *
- * A mark illustrates a sensation: the ramp on the depth question shows what
- * pale and deep look like, and the marks the design specifies for the other
- * scales show what light body or a long finish feel like. It is a teaching
- * aid, drawn from the axis the question measures.
+ * A mark illustrates a sensation, and the axis says which one: smell
+ * intensity is a distance, body is a thickness, finish is a duration. The
+ * axis rather than the question decides it, so a question added later
+ * inherits an existing mark and nothing new has to be drawn.
  *
- * Conclude has no axis to draw. "Faulty → Outstanding" and "Guessing →
- * Confident" are ordered, but they are judgements the taster arrives at, not
- * sensations they receive, so there is no geometry a mark could illustrate —
- * and a ramp beside them would say the wine gets deeper as it gets better.
- * They take a plain row, which is also the visible difference between the two
- * halves of a session: a mark means you observed it, no mark means you decided
- * it. Same seam `noteSoFar` draws when it leaves Conclude out of the sentence.
+ * The server sends it, because it is a property of the question rather than
+ * of the render. Empty means a plain row, and that is not an omission:
+ * everything in Conclude is unmarked, because "faulty → outstanding" and
+ * "guessing → confident" are judgements the taster arrives at rather than
+ * sensations they receive, and a mark beside them would illustrate nothing.
+ * So a mark means you observed it and a plain row means you decided it — the
+ * same seam `noteSoFar` draws when it leaves Conclude out of the sentence.
  *
  * @param {object} step - A step from `buildSteps`.
- * @returns {boolean}
+ * @returns {string} An `Axis` value, or '' for a question with no mark.
  */
-export function hasRungMark(step) {
-  if (!step || !step.question) return false;
-  if (step.phase === PHASE_CONCLUDE) return false;
-  return step.question.control === 'scale';
+export function markAxis(step) {
+  if (!step || !step.question) return '';
+  // Belt and braces against a stale cached payload seeded before Conclude
+  // was ruled out: the phase is the rule, the field is only how it travels.
+  if (step.phase === PHASE_CONCLUDE) return '';
+  return step.question.axis || '';
+}
+
+/**
+ * How far along its scale a rung sits: 0 at the bottom, 1 at the top.
+ *
+ * The marks are drawn by interpolation rather than as three fixed rungs,
+ * which is what lets sweetness draw five and everything else draw three from
+ * one rule. A single-option scale has no progression to show, so it reads
+ * full rather than empty — an unreachable top rung would be the one case
+ * where the mark contradicts the label.
+ *
+ * @param {number} index - Position among the question's options.
+ * @param {number} count - How many options it has.
+ * @returns {number} Between 0 and 1.
+ */
+export function markReach(index, count) {
+  if (count <= 1) return 1;
+  const clamped = Math.max(0, Math.min(index, count - 1));
+  return clamped / (count - 1);
 }
 
 /**

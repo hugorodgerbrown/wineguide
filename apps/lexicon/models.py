@@ -34,7 +34,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import AromaOrigin, Control, Phase, WineType, phase_index
+from apps.core.enums import AromaOrigin, Axis, Control, Phase, WineType, phase_index
 
 
 class LexiconQuerySet(models.QuerySet["Lexicon"]):
@@ -172,6 +172,17 @@ class Question(models.Model):
     )
     control = models.CharField(
         _("control"), max_length=16, choices=Control.choices, default=Control.SINGLE
+    )
+    axis = models.CharField(
+        _("axis"),
+        max_length=16,
+        blank=True,
+        choices=Axis.choices,
+        help_text=_(
+            "What this question measures, which decides the mark its options "
+            "carry. Leave blank for a question that takes no mark — anything "
+            "categorical, and everything in Conclude."
+        ),
     )
     wine_types = models.JSONField(
         _("wine types"),
