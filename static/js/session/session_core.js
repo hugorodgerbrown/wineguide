@@ -464,6 +464,31 @@ export function depthRung(steps, state) {
 }
 
 /**
+ * Do this question's options carry a rung mark?
+ *
+ * A mark illustrates a sensation: the ramp on the depth question shows what
+ * pale and deep look like, and the marks the design specifies for the other
+ * scales show what light body or a long finish feel like. It is a teaching
+ * aid, drawn from the axis the question measures.
+ *
+ * Conclude has no axis to draw. "Faulty → Outstanding" and "Guessing →
+ * Confident" are ordered, but they are judgements the taster arrives at, not
+ * sensations they receive, so there is no geometry a mark could illustrate —
+ * and a ramp beside them would say the wine gets deeper as it gets better.
+ * They take a plain row, which is also the visible difference between the two
+ * halves of a session: a mark means you observed it, no mark means you decided
+ * it. Same seam `noteSoFar` draws when it leaves Conclude out of the sentence.
+ *
+ * @param {object} step - A step from `buildSteps`.
+ * @returns {boolean}
+ */
+export function hasRungMark(step) {
+  if (!step || !step.question) return false;
+  if (step.phase === PHASE_CONCLUDE) return false;
+  return step.question.control === 'scale';
+}
+
+/**
  * The tasting note as far as it has been written.
  *
  * The design's centrepiece: rather than a list of stored answers, the screen

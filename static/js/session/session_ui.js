@@ -38,6 +38,7 @@ import {
   allAnswered,
   currentStep,
   depthRung,
+  hasRungMark,
   isFinished,
   isOverBudget,
   noteSoFar,
@@ -404,19 +405,23 @@ export function renderNoteCard(steps, state, onJump, onExpand) {
 /**
  * Render one option, with the guidance that says how to know it is this one.
  *
- * A scale question gets a graded swatch per rung, drawn from the wine's depth
+ * An observed scale gets a graded swatch per rung, drawn from the wine's depth
  * ramp — so "pale / medium / deep" is shown as well as named. The swatch is
  * never the only signal; the label is always there beside it (PRD §8).
+ *
+ * Whether a rung is marked at all is `hasRungMark`'s decision, not this
+ * function's: the Conclude scales are ordered but carry no mark, because
+ * there is no sensation for one to illustrate.
  *
  * @param {object} option
  * @param {object} question
  * @param {number} index - Position among its siblings, for the depth ramp.
  * @param {boolean} selected
  * @param {(code: string) => void} onPick
+ * @param {boolean} marked - Does this question's scale carry rung marks?
  * @returns {HTMLElement}
  */
-function renderOption(option, question, index, selected, onPick) {
-  const isScale = question.control === 'scale';
+function renderOption(option, question, index, selected, onPick, marked) {
   const rung = Math.min(index + 1, 3);
 
   return el(
@@ -441,7 +446,7 @@ function renderOption(option, question, index, selected, onPick) {
             'aria-hidden': 'true',
           })
         : null,
-      !option.swatch && isScale
+      !option.swatch && marked
         ? el('span', {
             class: `size-10 shrink-0 rounded-full bg-depth-${rung}`,
             'aria-hidden': 'true',
@@ -626,6 +631,7 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
     ]),
   );
 
+  const marked = hasRungMark(step);
   const options = el('div', { class: 'mt-5 flex flex-col gap-2.5' });
   question.options.forEach((option, index) => {
     options.append(
@@ -635,6 +641,7 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
         index,
         answered.values.includes(option.code),
         handlers.onAnswer,
+        marked,
       ),
     );
     // A category's descriptors appear once it is chosen, so the first screen
@@ -651,6 +658,7 @@ export function renderQuestion({ steps, state, now, rubricOpen, handlers }) {
             childIndex,
             answered.values.includes(child.code),
             handlers.onAnswer,
+            marked,
           ),
         );
       });

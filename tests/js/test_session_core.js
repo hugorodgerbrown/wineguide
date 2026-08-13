@@ -18,6 +18,7 @@ import {
   currentStep,
   depthRung,
   goTo,
+  hasRungMark,
   isFinished,
   isOverBudget,
   next,
@@ -679,6 +680,37 @@ describe('noteSoFar', () => {
     state = answer(steps, next(steps, state, at(6)), 'very_good', at(7));
 
     expect(noteSoFar(steps, state)).toBe('Clear');
+  });
+});
+
+describe('hasRungMark', () => {
+  /** One step, built the way `buildSteps` builds them. */
+  const step = (phase, control) => ({ phase, question: { control } });
+
+  it('marks an observed scale', () => {
+    // The ramp is a teaching aid: it shows what pale and deep look like.
+    expect(hasRungMark(step('look', 'scale'))).toBe(true);
+    expect(hasRungMark(step('taste', 'scale'))).toBe(true);
+  });
+
+  it('leaves the Conclude scales unmarked', () => {
+    // Quality and confidence are ordered, but they are judgements rather than
+    // sensations — a depth ramp beside "faulty → outstanding" would say the
+    // wine gets deeper as it gets better.
+    expect(hasRungMark(step('conclude', 'scale'))).toBe(false);
+  });
+
+  it('leaves categorical questions unmarked wherever they fall', () => {
+    expect(hasRungMark(step('look', 'single'))).toBe(false);
+    expect(hasRungMark(step('smell', 'multi'))).toBe(false);
+    expect(hasRungMark(step('conclude', 'single'))).toBe(false);
+  });
+
+  it('says no rather than throwing when there is no step', () => {
+    // Called during a render, where a missing step means the session has run
+    // off the end — drawing nothing is the right answer, not an exception.
+    expect(hasRungMark(undefined)).toBe(false);
+    expect(hasRungMark({})).toBe(false);
   });
 });
 

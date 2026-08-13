@@ -214,6 +214,11 @@ def dots(
     return "".join(out)
 
 
+def eyebrow(text: str) -> str:
+    """Return a small caption labelling a group of rows within a card."""
+    return f'<span class="lbl" style="margin-top:6px">{text}</span>'
+
+
 def option(
     label: str, desc: str, *, selected: bool = False, rung: int | None = None
 ) -> str:
@@ -464,11 +469,12 @@ def write_components() -> None:
     card(
         "components/option-row.html",
         "Session",
-        "700x420",
+        "700x560",
         "Option row",
         "Tap to select, never free text. 76px minimum, 10px gaps. "
-        "Selected = raised fill + accent border",
+        "Selected = raised fill + accent border. A mark means you observed it",
         '<div data-wine="still_red" style="display:flex;flex-direction:column;gap:10px">'
+        + eyebrow("Observed — the rung carries a mark")
         + option(
             "Pale", "A wide watery rim; the colour fades well before the edge.", rung=1
         )
@@ -483,6 +489,8 @@ def write_components() -> None:
             "Coloured right to the edge; you cannot see the stem through it.",
             rung=3,
         )
+        + eyebrow("Judged, and categorical — a plain row")
+        + option("Very good", "Balanced with real length and complexity.")
         + option("Clear", "You can see straight through it.")
         + "</div>",
     )

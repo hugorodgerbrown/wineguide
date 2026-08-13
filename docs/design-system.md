@@ -74,6 +74,15 @@ The question headline is the only type above 24px in a session.
 - **OptionRow** — tap-to-select, never free text. 76px minimum, 10px gaps,
   full gutter width. Selected is a raised fill plus an accent border. No hover
   state — this is a touch surface.
+- **Rung marks** — a scale question's rows carry a mark showing what the
+  answers look or feel like; categorical questions do not. **The Conclude
+  scales are the exception: they are ordered but carry no mark.** A mark
+  illustrates a sensation, and "faulty → outstanding" and "guessing →
+  confident" are judgements the taster arrives at, not sensations they
+  receive — a depth ramp beside them would say the wine gets deeper as it gets
+  better. So a mark means *you observed this* and a plain row means *you
+  decided this*, which is the same seam `noteSoFar` draws when it leaves
+  Conclude out of the sentence. `hasRungMark` in `session_core.js`.
 - **WineSwatch** — a whole filled circle. **Never a rim, edge or partial
   fill**; depth reads as one solid disc, always from `--color-depth-1..3` so
   the same component reads lemon in a white session and ruby in a red one.
