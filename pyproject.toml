@@ -43,13 +43,13 @@ lint = [
     # Pinned EXACT (not a range) so `uv lock --upgrade` cannot float ruff
     # ahead of the .pre-commit-config.yaml pin and drift CI against the local
     # hook. Bump both in lockstep.
-    "ruff==0.16.1",
+    "ruff==0.16.3",
     "djangofmt>=0.2.6,<0.3",
 ]
 sast = ["semgrep>=1.171.0,<2"]
 e2e = [
     "playwright>=1.0,<2",
-    "pytest-playwright>=0.7,<0.9",
+    "pytest-playwright>=0.7,<0.10",
     { include-group = "test" },
 ]
 dev = [
